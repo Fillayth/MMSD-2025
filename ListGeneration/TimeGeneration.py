@@ -1,6 +1,7 @@
 import numpy as np
 import random
 
+#Funzione di esempio per generare il tempo date delle distribuzioni di probabilità (Da aggiornare con le distribuzioni richieste)
 def generate_time(distribution, **kwargs):
     """
     Genera un tempo in minuti basato sulla distribuzione di probabilità selezionata.

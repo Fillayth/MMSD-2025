@@ -13,7 +13,7 @@ def generate_random_name():
     # Restituisce un nome completo casuale combinando un nome e un cognome
     return f"{random.choice(first_names)} {random.choice(last_names)}"
 
-# Funzione per generare una data casuale nell'ultimo anno
+# Funzione per generare una data casuale nell'ultimo anno (Cambiare in base alle esigenze lo span di tempo)
 def generate_random_date_within_last_year():
     # Calcola la data di inizio (un anno fa) e la data di fine (oggi)
     start_date = datetime.date.today() - datetime.timedelta(days=365)
@@ -23,9 +23,9 @@ def generate_random_date_within_last_year():
     # Restituisce la data in formato stringa "YYYY-MM-DD"
     return random_date.strftime("%Y-%m-%d")
 
-# Funzione per generare un file CSV con i campi specificati
+# Funzione per generare un file CSV con i campi specificati 
 def generate_csv(file_name, num_records):
-    # Definizione dei possibili valori per il campo "Tipo di Operazione"
+    # Definizione dei possibili valori per il campo "Tipo di Operazione" (Da completare con Le Operazioni prese in esame)
     operation_types = ["Operazione A", "Operazione B", "Operazione C"]
     records = []  # Lista per memorizzare i record generati
 
@@ -35,7 +35,8 @@ def generate_csv(file_name, num_records):
         nome_cognome = generate_random_name()
         # Seleziona un tipo di operazione casuale
         tipo_operazione = random.choice(operation_types)
-        # Genera un tempo stimato casuale tra 5 e 60 minuti usando il modulo TimeGeneration
+        # Genera un tempo stimato casuale tra 5 e 60 minuti usando il modulo TimeGeneration --> all'interno del modulo TimeGeneration 
+        # è presente la funzione generate_time che genera un tempo in base alla distribuzione di probabilità
         tempistiche_stimate = TimeGeneration.generate_time('uniform', low=5, high=180)
         # Genera una data casuale nell'ultimo anno
         data_messa_in_lista = generate_random_date_within_last_year()
