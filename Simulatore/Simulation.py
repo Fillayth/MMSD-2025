@@ -2,15 +2,16 @@ import csv
 import json
 
 def read_and_split_by_operation_with_metadata(csv_file):
-    with open(csv_file, newline='', encoding='utf-8') as f:
-        reader = csv.reader(f)
+    with open(csv_file, mode='r', newline='', encoding='utf-8') as f:
+        content = f.readlines()[2:] 
+        reader = csv.reader(content)
         lines = list(reader)
 
-    data_rows = lines[2:]
+    #data_rows = lines[2:]
 
     ops = {"Operazione A": [], "Operazione B": [], "Operazione C": []}
 
-    for row in data_rows:
+    for row in lines:
         patient_id, op_type, eot, day, mtb = row
         patient = {
             "id": int(patient_id),
@@ -78,6 +79,6 @@ def export_json_schedule(data, filename="weekly_schedule.json"):
     print(f"JSON exported to {filename}")
 
 if __name__ == "__main__":
-    ops = read_and_split_by_operation_with_metadata("../ListGeneration/lista_attesa_simulata.csv")
+    ops = read_and_split_by_operation_with_metadata("lista_attesa_simulata.csv")
     schedule = group_weekly_with_mtb_logic(ops)
     export_json_schedule(schedule)
