@@ -1,0 +1,3330 @@
+{
+    "Operazione A": [
+        {
+            "week": 1,
+            "patients": [
+                {
+                    "id": 91,
+                    "eot": 78.61,
+                    "day": 17,
+                    "mtb": 23,
+                    "overdue": false
+                },
+                {
+                    "id": 28,
+                    "eot": 77.59,
+                    "day": 5,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 151,
+                    "eot": 67.97,
+                    "day": 28,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 142,
+                    "eot": 67.24,
+                    "day": 26,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 86,
+                    "eot": 63.63,
+                    "day": 16,
+                    "mtb": 19,
+                    "overdue": false
+                },
+                {
+                    "id": 116,
+                    "eot": 63.28,
+                    "day": 22,
+                    "mtb": 20,
+                    "overdue": false
+                },
+                {
+                    "id": 69,
+                    "eot": 61.3,
+                    "day": 13,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 13,
+                    "eot": 60.91,
+                    "day": 2,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 120,
+                    "eot": 59.83,
+                    "day": 23,
+                    "mtb": 23,
+                    "overdue": false
+                },
+                {
+                    "id": 141,
+                    "eot": 57.47,
+                    "day": 26,
+                    "mtb": 6,
+                    "overdue": false
+                },
+                {
+                    "id": 96,
+                    "eot": 55.06,
+                    "day": 18,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 4,
+                    "eot": 54.19,
+                    "day": 0,
+                    "mtb": 20,
+                    "overdue": false
+                },
+                {
+                    "id": 124,
+                    "eot": 52.48,
+                    "day": 23,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 39,
+                    "eot": 52.38,
+                    "day": 7,
+                    "mtb": 23,
+                    "overdue": false
+                },
+                {
+                    "id": 45,
+                    "eot": 51.53,
+                    "day": 8,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 93,
+                    "eot": 51.19,
+                    "day": 17,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 62,
+                    "eot": 50.57,
+                    "day": 11,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 32,
+                    "eot": 50.41,
+                    "day": 6,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 143,
+                    "eot": 49.97,
+                    "day": 27,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 78,
+                    "eot": 49.79,
+                    "day": 15,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 8,
+                    "eot": 49.69,
+                    "day": 1,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 29,
+                    "eot": 48.79,
+                    "day": 5,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 41,
+                    "eot": 47.13,
+                    "day": 8,
+                    "mtb": 21,
+                    "overdue": false
+                },
+                {
+                    "id": 63,
+                    "eot": 46.71,
+                    "day": 12,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 153,
+                    "eot": 46.54,
+                    "day": 28,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 49,
+                    "eot": 45.19,
+                    "day": 9,
+                    "mtb": 7,
+                    "overdue": false
+                },
+                {
+                    "id": 9,
+                    "eot": 44.93,
+                    "day": 1,
+                    "mtb": 23,
+                    "overdue": false
+                },
+                {
+                    "id": 92,
+                    "eot": 43.89,
+                    "day": 17,
+                    "mtb": 24,
+                    "overdue": false
+                },
+                {
+                    "id": 68,
+                    "eot": 43.26,
+                    "day": 13,
+                    "mtb": 19,
+                    "overdue": false
+                },
+                {
+                    "id": 111,
+                    "eot": 42.99,
+                    "day": 21,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 65,
+                    "eot": 42.92,
+                    "day": 12,
+                    "mtb": 19,
+                    "overdue": false
+                },
+                {
+                    "id": 123,
+                    "eot": 41.77,
+                    "day": 23,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 7,
+                    "eot": 40.97,
+                    "day": 1,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 31,
+                    "eot": 40.51,
+                    "day": 6,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 138,
+                    "eot": 38.47,
+                    "day": 26,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 136,
+                    "eot": 38.1,
+                    "day": 26,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 3,
+                    "eot": 37.11,
+                    "day": 0,
+                    "mtb": 19,
+                    "overdue": false
+                },
+                {
+                    "id": 36,
+                    "eot": 37.01,
+                    "day": 6,
+                    "mtb": 22,
+                    "overdue": false
+                },
+                {
+                    "id": 5,
+                    "eot": 34.94,
+                    "day": 0,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 135,
+                    "eot": 34.57,
+                    "day": 26,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 139,
+                    "eot": 34.57,
+                    "day": 26,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 79,
+                    "eot": 34.38,
+                    "day": 15,
+                    "mtb": 20,
+                    "overdue": false
+                },
+                {
+                    "id": 59,
+                    "eot": 34.1,
+                    "day": 10,
+                    "mtb": 8,
+                    "overdue": false
+                },
+                {
+                    "id": 146,
+                    "eot": 32.28,
+                    "day": 27,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 55,
+                    "eot": 32.13,
+                    "day": 10,
+                    "mtb": 20,
+                    "overdue": false
+                },
+                {
+                    "id": 33,
+                    "eot": 31.78,
+                    "day": 6,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 140,
+                    "eot": 31.62,
+                    "day": 26,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 95,
+                    "eot": 31.59,
+                    "day": 18,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 67,
+                    "eot": 31.12,
+                    "day": 13,
+                    "mtb": 4,
+                    "overdue": false
+                },
+                {
+                    "id": 117,
+                    "eot": 30.97,
+                    "day": 22,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 76,
+                    "eot": 27.98,
+                    "day": 15,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 1,
+                    "eot": 26.41,
+                    "day": 0,
+                    "mtb": 9,
+                    "overdue": false
+                }
+            ]
+        },
+        {
+            "week": 2,
+            "patients": [
+                {
+                    "id": 219,
+                    "eot": 85.88,
+                    "day": 43,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 279,
+                    "eot": 78.78,
+                    "day": 56,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 260,
+                    "eot": 73.36,
+                    "day": 52,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 204,
+                    "eot": 72.06,
+                    "day": 39,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 213,
+                    "eot": 70.82,
+                    "day": 41,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 207,
+                    "eot": 69.17,
+                    "day": 40,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 198,
+                    "eot": 65.85,
+                    "day": 37,
+                    "mtb": 3,
+                    "overdue": false
+                },
+                {
+                    "id": 183,
+                    "eot": 65.3,
+                    "day": 35,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 208,
+                    "eot": 64.6,
+                    "day": 40,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 174,
+                    "eot": 64.01,
+                    "day": 33,
+                    "mtb": 6,
+                    "overdue": false
+                },
+                {
+                    "id": 255,
+                    "eot": 63.25,
+                    "day": 51,
+                    "mtb": 19,
+                    "overdue": false
+                },
+                {
+                    "id": 154,
+                    "eot": 61.87,
+                    "day": 28,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 243,
+                    "eot": 59.58,
+                    "day": 48,
+                    "mtb": 2,
+                    "overdue": false
+                },
+                {
+                    "id": 202,
+                    "eot": 54.22,
+                    "day": 39,
+                    "mtb": 19,
+                    "overdue": false
+                },
+                {
+                    "id": 201,
+                    "eot": 53.49,
+                    "day": 39,
+                    "mtb": 24,
+                    "overdue": false
+                },
+                {
+                    "id": 252,
+                    "eot": 52.92,
+                    "day": 51,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 248,
+                    "eot": 51.45,
+                    "day": 49,
+                    "mtb": 7,
+                    "overdue": false
+                },
+                {
+                    "id": 212,
+                    "eot": 50.07,
+                    "day": 41,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 277,
+                    "eot": 49.62,
+                    "day": 55,
+                    "mtb": 10,
+                    "overdue": false
+                },
+                {
+                    "id": 234,
+                    "eot": 49.23,
+                    "day": 46,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 187,
+                    "eot": 48.83,
+                    "day": 35,
+                    "mtb": 20,
+                    "overdue": false
+                },
+                {
+                    "id": 261,
+                    "eot": 48.37,
+                    "day": 52,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 262,
+                    "eot": 48.12,
+                    "day": 52,
+                    "mtb": 21,
+                    "overdue": false
+                },
+                {
+                    "id": 221,
+                    "eot": 47.41,
+                    "day": 43,
+                    "mtb": 20,
+                    "overdue": false
+                },
+                {
+                    "id": 179,
+                    "eot": 46.32,
+                    "day": 34,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 209,
+                    "eot": 45.32,
+                    "day": 40,
+                    "mtb": 10,
+                    "overdue": false
+                },
+                {
+                    "id": 278,
+                    "eot": 43.28,
+                    "day": 56,
+                    "mtb": 22,
+                    "overdue": false
+                },
+                {
+                    "id": 162,
+                    "eot": 43.17,
+                    "day": 29,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 166,
+                    "eot": 42.51,
+                    "day": 31,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 173,
+                    "eot": 42.46,
+                    "day": 33,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 283,
+                    "eot": 41.53,
+                    "day": 57,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 286,
+                    "eot": 41.31,
+                    "day": 58,
+                    "mtb": 19,
+                    "overdue": false
+                },
+                {
+                    "id": 190,
+                    "eot": 40.6,
+                    "day": 35,
+                    "mtb": 26,
+                    "overdue": false
+                },
+                {
+                    "id": 223,
+                    "eot": 38.82,
+                    "day": 44,
+                    "mtb": 20,
+                    "overdue": false
+                },
+                {
+                    "id": 296,
+                    "eot": 37.77,
+                    "day": 60,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 254,
+                    "eot": 37.75,
+                    "day": 51,
+                    "mtb": 19,
+                    "overdue": false
+                },
+                {
+                    "id": 258,
+                    "eot": 37.35,
+                    "day": 52,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 220,
+                    "eot": 37.05,
+                    "day": 43,
+                    "mtb": 19,
+                    "overdue": false
+                },
+                {
+                    "id": 245,
+                    "eot": 36.95,
+                    "day": 48,
+                    "mtb": 19,
+                    "overdue": false
+                },
+                {
+                    "id": 200,
+                    "eot": 35.88,
+                    "day": 39,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 161,
+                    "eot": 34.92,
+                    "day": 29,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 192,
+                    "eot": 33.48,
+                    "day": 36,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 229,
+                    "eot": 32.91,
+                    "day": 45,
+                    "mtb": 5,
+                    "overdue": false
+                },
+                {
+                    "id": 224,
+                    "eot": 32.89,
+                    "day": 44,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 257,
+                    "eot": 31.46,
+                    "day": 52,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 210,
+                    "eot": 28.92,
+                    "day": 40,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 267,
+                    "eot": 28.03,
+                    "day": 54,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 270,
+                    "eot": 26.83,
+                    "day": 54,
+                    "mtb": 24,
+                    "overdue": false
+                },
+                {
+                    "id": 273,
+                    "eot": 26.82,
+                    "day": 55,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 235,
+                    "eot": 21.24,
+                    "day": 46,
+                    "mtb": 9,
+                    "overdue": false
+                }
+            ]
+        },
+        {
+            "week": 3,
+            "patients": [
+                {
+                    "id": 407,
+                    "eot": 90.83,
+                    "day": 84,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 358,
+                    "eot": 83.64,
+                    "day": 72,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 291,
+                    "eot": 80.62,
+                    "day": 58,
+                    "mtb": 23,
+                    "overdue": false
+                },
+                {
+                    "id": 410,
+                    "eot": 79.1,
+                    "day": 85,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 361,
+                    "eot": 72.65,
+                    "day": 73,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 345,
+                    "eot": 72.59,
+                    "day": 70,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 399,
+                    "eot": 70.65,
+                    "day": 83,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 357,
+                    "eot": 69.27,
+                    "day": 72,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 451,
+                    "eot": 68.57,
+                    "day": 95,
+                    "mtb": 8,
+                    "overdue": false
+                },
+                {
+                    "id": 430,
+                    "eot": 67.14,
+                    "day": 91,
+                    "mtb": 22,
+                    "overdue": false
+                },
+                {
+                    "id": 391,
+                    "eot": 64.84,
+                    "day": 80,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 434,
+                    "eot": 62.7,
+                    "day": 92,
+                    "mtb": 23,
+                    "overdue": false
+                },
+                {
+                    "id": 447,
+                    "eot": 51.23,
+                    "day": 95,
+                    "mtb": 10,
+                    "overdue": false
+                },
+                {
+                    "id": 442,
+                    "eot": 49.9,
+                    "day": 93,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 356,
+                    "eot": 49.63,
+                    "day": 72,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 290,
+                    "eot": 49.47,
+                    "day": 58,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 383,
+                    "eot": 49.11,
+                    "day": 78,
+                    "mtb": 20,
+                    "overdue": false
+                },
+                {
+                    "id": 432,
+                    "eot": 48.84,
+                    "day": 91,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 425,
+                    "eot": 48.33,
+                    "day": 90,
+                    "mtb": 25,
+                    "overdue": false
+                },
+                {
+                    "id": 443,
+                    "eot": 46.45,
+                    "day": 93,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 421,
+                    "eot": 45.1,
+                    "day": 89,
+                    "mtb": 20,
+                    "overdue": false
+                },
+                {
+                    "id": 392,
+                    "eot": 44.07,
+                    "day": 81,
+                    "mtb": 21,
+                    "overdue": false
+                },
+                {
+                    "id": 436,
+                    "eot": 43.06,
+                    "day": 92,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 438,
+                    "eot": 42.9,
+                    "day": 93,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 298,
+                    "eot": 41.71,
+                    "day": 60,
+                    "mtb": 10,
+                    "overdue": false
+                },
+                {
+                    "id": 424,
+                    "eot": 41.63,
+                    "day": 90,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 364,
+                    "eot": 41.6,
+                    "day": 74,
+                    "mtb": 20,
+                    "overdue": false
+                },
+                {
+                    "id": 419,
+                    "eot": 41.55,
+                    "day": 89,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 349,
+                    "eot": 40.66,
+                    "day": 71,
+                    "mtb": 22,
+                    "overdue": false
+                },
+                {
+                    "id": 441,
+                    "eot": 40.14,
+                    "day": 93,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 370,
+                    "eot": 39.68,
+                    "day": 75,
+                    "mtb": 22,
+                    "overdue": false
+                },
+                {
+                    "id": 429,
+                    "eot": 38.95,
+                    "day": 91,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 335,
+                    "eot": 38.85,
+                    "day": 69,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 414,
+                    "eot": 37.81,
+                    "day": 86,
+                    "mtb": 21,
+                    "overdue": false
+                },
+                {
+                    "id": 304,
+                    "eot": 37.32,
+                    "day": 61,
+                    "mtb": 22,
+                    "overdue": false
+                },
+                {
+                    "id": 427,
+                    "eot": 37.12,
+                    "day": 91,
+                    "mtb": 23,
+                    "overdue": false
+                },
+                {
+                    "id": 321,
+                    "eot": 37.05,
+                    "day": 66,
+                    "mtb": 10,
+                    "overdue": false
+                },
+                {
+                    "id": 351,
+                    "eot": 36.74,
+                    "day": 71,
+                    "mtb": 22,
+                    "overdue": false
+                },
+                {
+                    "id": 369,
+                    "eot": 36.74,
+                    "day": 74,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 416,
+                    "eot": 36.04,
+                    "day": 87,
+                    "mtb": 9,
+                    "overdue": false
+                },
+                {
+                    "id": 359,
+                    "eot": 35.52,
+                    "day": 73,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 342,
+                    "eot": 35.34,
+                    "day": 70,
+                    "mtb": 21,
+                    "overdue": false
+                },
+                {
+                    "id": 367,
+                    "eot": 34.84,
+                    "day": 74,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 423,
+                    "eot": 32.97,
+                    "day": 90,
+                    "mtb": 10,
+                    "overdue": false
+                },
+                {
+                    "id": 341,
+                    "eot": 32.4,
+                    "day": 69,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 437,
+                    "eot": 32.35,
+                    "day": 93,
+                    "mtb": 27,
+                    "overdue": false
+                },
+                {
+                    "id": 386,
+                    "eot": 29.14,
+                    "day": 78,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 300,
+                    "eot": 24.88,
+                    "day": 60,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 302,
+                    "eot": 24.47,
+                    "day": 61,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 334,
+                    "eot": 21.83,
+                    "day": 68,
+                    "mtb": 23,
+                    "overdue": false
+                }
+            ]
+        },
+        {
+            "week": 4,
+            "patients": [
+                {
+                    "id": 465,
+                    "eot": 42.76,
+                    "day": 99,
+                    "mtb": 7,
+                    "overdue": false
+                },
+                {
+                    "id": 459,
+                    "eot": 35.47,
+                    "day": 98,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 464,
+                    "eot": 30.26,
+                    "day": 99,
+                    "mtb": 17,
+                    "overdue": false
+                }
+            ]
+        }
+    ],
+    "Operazione B": [
+        {
+            "week": 1,
+            "patients": [
+                {
+                    "id": 126,
+                    "eot": 92.19,
+                    "day": 23,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 87,
+                    "eot": 88.13,
+                    "day": 16,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 23,
+                    "eot": 82.85,
+                    "day": 4,
+                    "mtb": 32,
+                    "overdue": false
+                },
+                {
+                    "id": 115,
+                    "eot": 76.27,
+                    "day": 22,
+                    "mtb": 5,
+                    "overdue": false
+                },
+                {
+                    "id": 48,
+                    "eot": 70.97,
+                    "day": 9,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 26,
+                    "eot": 70.64,
+                    "day": 5,
+                    "mtb": 20,
+                    "overdue": false
+                },
+                {
+                    "id": 56,
+                    "eot": 68.03,
+                    "day": 10,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 12,
+                    "eot": 65.46,
+                    "day": 2,
+                    "mtb": 10,
+                    "overdue": false
+                },
+                {
+                    "id": 97,
+                    "eot": 64.15,
+                    "day": 18,
+                    "mtb": 9,
+                    "overdue": false
+                },
+                {
+                    "id": 60,
+                    "eot": 57.74,
+                    "day": 11,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 94,
+                    "eot": 56.68,
+                    "day": 17,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 20,
+                    "eot": 54.7,
+                    "day": 4,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 99,
+                    "eot": 54.21,
+                    "day": 18,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 112,
+                    "eot": 53.61,
+                    "day": 22,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 10,
+                    "eot": 52.07,
+                    "day": 2,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 34,
+                    "eot": 51.95,
+                    "day": 6,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 108,
+                    "eot": 51.9,
+                    "day": 20,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 77,
+                    "eot": 51.12,
+                    "day": 15,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 137,
+                    "eot": 49.49,
+                    "day": 26,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 104,
+                    "eot": 49.26,
+                    "day": 19,
+                    "mtb": 8,
+                    "overdue": false
+                },
+                {
+                    "id": 119,
+                    "eot": 48.55,
+                    "day": 23,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 72,
+                    "eot": 48.09,
+                    "day": 13,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 150,
+                    "eot": 46.39,
+                    "day": 28,
+                    "mtb": 20,
+                    "overdue": false
+                },
+                {
+                    "id": 81,
+                    "eot": 45.93,
+                    "day": 15,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 18,
+                    "eot": 45.87,
+                    "day": 3,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 127,
+                    "eot": 45.49,
+                    "day": 23,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 90,
+                    "eot": 44.15,
+                    "day": 17,
+                    "mtb": 20,
+                    "overdue": false
+                },
+                {
+                    "id": 6,
+                    "eot": 43.86,
+                    "day": 1,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 129,
+                    "eot": 43.63,
+                    "day": 24,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 25,
+                    "eot": 43.38,
+                    "day": 5,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 125,
+                    "eot": 41.94,
+                    "day": 23,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 54,
+                    "eot": 41.78,
+                    "day": 10,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 43,
+                    "eot": 41.26,
+                    "day": 8,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 156,
+                    "eot": 40.73,
+                    "day": 29,
+                    "mtb": 10,
+                    "overdue": false
+                },
+                {
+                    "id": 109,
+                    "eot": 39.17,
+                    "day": 21,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 2,
+                    "eot": 37.55,
+                    "day": 0,
+                    "mtb": 10,
+                    "overdue": false
+                },
+                {
+                    "id": 44,
+                    "eot": 37.15,
+                    "day": 8,
+                    "mtb": 21,
+                    "overdue": false
+                },
+                {
+                    "id": 101,
+                    "eot": 36.91,
+                    "day": 19,
+                    "mtb": 6,
+                    "overdue": false
+                },
+                {
+                    "id": 114,
+                    "eot": 36.16,
+                    "day": 22,
+                    "mtb": 9,
+                    "overdue": false
+                },
+                {
+                    "id": 47,
+                    "eot": 34.13,
+                    "day": 9,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 88,
+                    "eot": 33.1,
+                    "day": 17,
+                    "mtb": 19,
+                    "overdue": false
+                },
+                {
+                    "id": 149,
+                    "eot": 30.05,
+                    "day": 28,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 134,
+                    "eot": 30.04,
+                    "day": 25,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 38,
+                    "eot": 29.54,
+                    "day": 7,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 16,
+                    "eot": 28.82,
+                    "day": 3,
+                    "mtb": 6,
+                    "overdue": false
+                },
+                {
+                    "id": 102,
+                    "eot": 28.65,
+                    "day": 19,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 147,
+                    "eot": 28.63,
+                    "day": 27,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 105,
+                    "eot": 26.4,
+                    "day": 19,
+                    "mtb": 21,
+                    "overdue": false
+                },
+                {
+                    "id": 84,
+                    "eot": 24.96,
+                    "day": 16,
+                    "mtb": 25,
+                    "overdue": false
+                },
+                {
+                    "id": 106,
+                    "eot": 23.47,
+                    "day": 19,
+                    "mtb": 14,
+                    "overdue": false
+                }
+            ]
+        },
+        {
+            "week": 2,
+            "patients": [
+                {
+                    "id": 269,
+                    "eot": 110.53,
+                    "day": 54,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 203,
+                    "eot": 94.44,
+                    "day": 39,
+                    "mtb": 19,
+                    "overdue": false
+                },
+                {
+                    "id": 159,
+                    "eot": 85.66,
+                    "day": 29,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 306,
+                    "eot": 81.97,
+                    "day": 61,
+                    "mtb": 19,
+                    "overdue": false
+                },
+                {
+                    "id": 305,
+                    "eot": 73.21,
+                    "day": 61,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 242,
+                    "eot": 72.24,
+                    "day": 48,
+                    "mtb": 2,
+                    "overdue": false
+                },
+                {
+                    "id": 199,
+                    "eot": 71.07,
+                    "day": 38,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 292,
+                    "eot": 65.71,
+                    "day": 59,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 226,
+                    "eot": 60.26,
+                    "day": 45,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 256,
+                    "eot": 59.19,
+                    "day": 51,
+                    "mtb": 8,
+                    "overdue": false
+                },
+                {
+                    "id": 316,
+                    "eot": 57.69,
+                    "day": 64,
+                    "mtb": 28,
+                    "overdue": false
+                },
+                {
+                    "id": 239,
+                    "eot": 57.58,
+                    "day": 47,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 184,
+                    "eot": 55.66,
+                    "day": 35,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 265,
+                    "eot": 54.66,
+                    "day": 53,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 197,
+                    "eot": 52.41,
+                    "day": 37,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 293,
+                    "eot": 52.21,
+                    "day": 59,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 211,
+                    "eot": 51.19,
+                    "day": 40,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 294,
+                    "eot": 49.56,
+                    "day": 60,
+                    "mtb": 7,
+                    "overdue": false
+                },
+                {
+                    "id": 272,
+                    "eot": 48.14,
+                    "day": 54,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 175,
+                    "eot": 46.74,
+                    "day": 34,
+                    "mtb": 24,
+                    "overdue": false
+                },
+                {
+                    "id": 247,
+                    "eot": 45.45,
+                    "day": 49,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 251,
+                    "eot": 45.13,
+                    "day": 50,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 264,
+                    "eot": 44.85,
+                    "day": 53,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 222,
+                    "eot": 44.28,
+                    "day": 44,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 157,
+                    "eot": 43.66,
+                    "day": 29,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 231,
+                    "eot": 42.81,
+                    "day": 45,
+                    "mtb": 20,
+                    "overdue": false
+                },
+                {
+                    "id": 158,
+                    "eot": 42.59,
+                    "day": 29,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 216,
+                    "eot": 41.76,
+                    "day": 43,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 217,
+                    "eot": 41.69,
+                    "day": 43,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 301,
+                    "eot": 40.92,
+                    "day": 60,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 165,
+                    "eot": 39.66,
+                    "day": 31,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 171,
+                    "eot": 39.62,
+                    "day": 33,
+                    "mtb": 20,
+                    "overdue": false
+                },
+                {
+                    "id": 314,
+                    "eot": 38.8,
+                    "day": 64,
+                    "mtb": 21,
+                    "overdue": false
+                },
+                {
+                    "id": 215,
+                    "eot": 38.72,
+                    "day": 42,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 228,
+                    "eot": 37.15,
+                    "day": 45,
+                    "mtb": 24,
+                    "overdue": false
+                },
+                {
+                    "id": 253,
+                    "eot": 37.03,
+                    "day": 51,
+                    "mtb": 20,
+                    "overdue": false
+                },
+                {
+                    "id": 288,
+                    "eot": 36.29,
+                    "day": 58,
+                    "mtb": 20,
+                    "overdue": false
+                },
+                {
+                    "id": 297,
+                    "eot": 36.13,
+                    "day": 60,
+                    "mtb": 20,
+                    "overdue": false
+                },
+                {
+                    "id": 312,
+                    "eot": 35.86,
+                    "day": 63,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 218,
+                    "eot": 35.71,
+                    "day": 43,
+                    "mtb": 22,
+                    "overdue": false
+                },
+                {
+                    "id": 285,
+                    "eot": 34.17,
+                    "day": 57,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 275,
+                    "eot": 31.89,
+                    "day": 55,
+                    "mtb": 21,
+                    "overdue": false
+                },
+                {
+                    "id": 276,
+                    "eot": 30.28,
+                    "day": 55,
+                    "mtb": 8,
+                    "overdue": false
+                },
+                {
+                    "id": 310,
+                    "eot": 29.71,
+                    "day": 63,
+                    "mtb": 21,
+                    "overdue": false
+                },
+                {
+                    "id": 178,
+                    "eot": 29.62,
+                    "day": 34,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 160,
+                    "eot": 28.39,
+                    "day": 29,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 214,
+                    "eot": 27.01,
+                    "day": 41,
+                    "mtb": 10,
+                    "overdue": false
+                },
+                {
+                    "id": 317,
+                    "eot": 25.83,
+                    "day": 64,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 244,
+                    "eot": 24.24,
+                    "day": 48,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 185,
+                    "eot": 22.86,
+                    "day": 35,
+                    "mtb": 20,
+                    "overdue": false
+                }
+            ]
+        },
+        {
+            "week": 3,
+            "patients": [
+                {
+                    "id": 390,
+                    "eot": 110.04,
+                    "day": 80,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 393,
+                    "eot": 92.84,
+                    "day": 81,
+                    "mtb": 22,
+                    "overdue": false
+                },
+                {
+                    "id": 325,
+                    "eot": 92.62,
+                    "day": 66,
+                    "mtb": 22,
+                    "overdue": false
+                },
+                {
+                    "id": 373,
+                    "eot": 88.61,
+                    "day": 75,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 409,
+                    "eot": 85.13,
+                    "day": 85,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 326,
+                    "eot": 80.23,
+                    "day": 67,
+                    "mtb": 30,
+                    "overdue": false
+                },
+                {
+                    "id": 347,
+                    "eot": 77.9,
+                    "day": 70,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 355,
+                    "eot": 76.14,
+                    "day": 72,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 348,
+                    "eot": 73.71,
+                    "day": 70,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 323,
+                    "eot": 70.91,
+                    "day": 66,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 376,
+                    "eot": 66.59,
+                    "day": 76,
+                    "mtb": 10,
+                    "overdue": false
+                },
+                {
+                    "id": 360,
+                    "eot": 65.35,
+                    "day": 73,
+                    "mtb": 10,
+                    "overdue": false
+                },
+                {
+                    "id": 320,
+                    "eot": 64.47,
+                    "day": 65,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 389,
+                    "eot": 61.91,
+                    "day": 80,
+                    "mtb": 9,
+                    "overdue": false
+                },
+                {
+                    "id": 397,
+                    "eot": 58.43,
+                    "day": 82,
+                    "mtb": 8,
+                    "overdue": false
+                },
+                {
+                    "id": 344,
+                    "eot": 52.79,
+                    "day": 70,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 353,
+                    "eot": 52.74,
+                    "day": 72,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 403,
+                    "eot": 52.56,
+                    "day": 83,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 400,
+                    "eot": 51.19,
+                    "day": 83,
+                    "mtb": 10,
+                    "overdue": false
+                },
+                {
+                    "id": 338,
+                    "eot": 51.05,
+                    "day": 69,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 378,
+                    "eot": 50.33,
+                    "day": 77,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 379,
+                    "eot": 49.66,
+                    "day": 77,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 322,
+                    "eot": 48.77,
+                    "day": 66,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 328,
+                    "eot": 46.38,
+                    "day": 68,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 387,
+                    "eot": 44.43,
+                    "day": 79,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 340,
+                    "eot": 44.37,
+                    "day": 69,
+                    "mtb": 10,
+                    "overdue": false
+                },
+                {
+                    "id": 382,
+                    "eot": 43.71,
+                    "day": 78,
+                    "mtb": 23,
+                    "overdue": false
+                },
+                {
+                    "id": 401,
+                    "eot": 43.56,
+                    "day": 83,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 324,
+                    "eot": 42.56,
+                    "day": 66,
+                    "mtb": 26,
+                    "overdue": false
+                },
+                {
+                    "id": 330,
+                    "eot": 39.46,
+                    "day": 68,
+                    "mtb": 21,
+                    "overdue": false
+                },
+                {
+                    "id": 372,
+                    "eot": 37.53,
+                    "day": 75,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 412,
+                    "eot": 37.45,
+                    "day": 86,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 396,
+                    "eot": 37.32,
+                    "day": 82,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 318,
+                    "eot": 36.77,
+                    "day": 65,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 363,
+                    "eot": 36.7,
+                    "day": 74,
+                    "mtb": 10,
+                    "overdue": false
+                },
+                {
+                    "id": 368,
+                    "eot": 36.37,
+                    "day": 74,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 418,
+                    "eot": 36.28,
+                    "day": 89,
+                    "mtb": 6,
+                    "overdue": false
+                },
+                {
+                    "id": 380,
+                    "eot": 35.8,
+                    "day": 77,
+                    "mtb": 22,
+                    "overdue": false
+                },
+                {
+                    "id": 319,
+                    "eot": 34.31,
+                    "day": 65,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 384,
+                    "eot": 33.14,
+                    "day": 78,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 394,
+                    "eot": 30.91,
+                    "day": 81,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 371,
+                    "eot": 30.3,
+                    "day": 75,
+                    "mtb": 23,
+                    "overdue": false
+                },
+                {
+                    "id": 329,
+                    "eot": 30.09,
+                    "day": 68,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 336,
+                    "eot": 26.54,
+                    "day": 69,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 405,
+                    "eot": 24.1,
+                    "day": 84,
+                    "mtb": 18,
+                    "overdue": false
+                }
+            ]
+        },
+        {
+            "week": 4,
+            "patients": [
+                {
+                    "id": 449,
+                    "eot": 99.39,
+                    "day": 95,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 463,
+                    "eot": 72.83,
+                    "day": 99,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 428,
+                    "eot": 57.38,
+                    "day": 91,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 439,
+                    "eot": 56.15,
+                    "day": 93,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 454,
+                    "eot": 55.45,
+                    "day": 95,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 444,
+                    "eot": 54.33,
+                    "day": 94,
+                    "mtb": 8,
+                    "overdue": false
+                },
+                {
+                    "id": 461,
+                    "eot": 51.17,
+                    "day": 99,
+                    "mtb": 9,
+                    "overdue": false
+                },
+                {
+                    "id": 433,
+                    "eot": 50.6,
+                    "day": 92,
+                    "mtb": 9,
+                    "overdue": false
+                },
+                {
+                    "id": 462,
+                    "eot": 48.21,
+                    "day": 99,
+                    "mtb": 20,
+                    "overdue": false
+                },
+                {
+                    "id": 431,
+                    "eot": 40.87,
+                    "day": 91,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 455,
+                    "eot": 38.01,
+                    "day": 96,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 426,
+                    "eot": 37.47,
+                    "day": 90,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 458,
+                    "eot": 32.63,
+                    "day": 97,
+                    "mtb": 20,
+                    "overdue": false
+                },
+                {
+                    "id": 446,
+                    "eot": 29.4,
+                    "day": 94,
+                    "mtb": 15,
+                    "overdue": false
+                }
+            ]
+        }
+    ],
+    "Operazione C": [
+        {
+            "week": 1,
+            "patients": [
+                {
+                    "id": 11,
+                    "eot": 117.87,
+                    "day": 2,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 22,
+                    "eot": 84.47,
+                    "day": 4,
+                    "mtb": 20,
+                    "overdue": false
+                },
+                {
+                    "id": 100,
+                    "eot": 79.94,
+                    "day": 19,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 17,
+                    "eot": 77.33,
+                    "day": 3,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 64,
+                    "eot": 70.14,
+                    "day": 12,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 37,
+                    "eot": 60.26,
+                    "day": 7,
+                    "mtb": 8,
+                    "overdue": false
+                },
+                {
+                    "id": 52,
+                    "eot": 59.99,
+                    "day": 9,
+                    "mtb": 8,
+                    "overdue": false
+                },
+                {
+                    "id": 40,
+                    "eot": 58.61,
+                    "day": 8,
+                    "mtb": 21,
+                    "overdue": false
+                },
+                {
+                    "id": 66,
+                    "eot": 58.02,
+                    "day": 12,
+                    "mtb": 9,
+                    "overdue": false
+                },
+                {
+                    "id": 82,
+                    "eot": 57.96,
+                    "day": 15,
+                    "mtb": 19,
+                    "overdue": false
+                },
+                {
+                    "id": 89,
+                    "eot": 57.9,
+                    "day": 17,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 80,
+                    "eot": 57.17,
+                    "day": 15,
+                    "mtb": 21,
+                    "overdue": false
+                },
+                {
+                    "id": 46,
+                    "eot": 56.21,
+                    "day": 8,
+                    "mtb": 6,
+                    "overdue": false
+                },
+                {
+                    "id": 27,
+                    "eot": 55.55,
+                    "day": 5,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 132,
+                    "eot": 55.26,
+                    "day": 25,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 14,
+                    "eot": 53.9,
+                    "day": 2,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 53,
+                    "eot": 53.7,
+                    "day": 9,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 130,
+                    "eot": 48.46,
+                    "day": 24,
+                    "mtb": 6,
+                    "overdue": false
+                },
+                {
+                    "id": 73,
+                    "eot": 47.42,
+                    "day": 13,
+                    "mtb": 9,
+                    "overdue": false
+                },
+                {
+                    "id": 133,
+                    "eot": 46.99,
+                    "day": 25,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 148,
+                    "eot": 44.33,
+                    "day": 27,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 145,
+                    "eot": 44.25,
+                    "day": 27,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 30,
+                    "eot": 44.14,
+                    "day": 6,
+                    "mtb": 6,
+                    "overdue": false
+                },
+                {
+                    "id": 50,
+                    "eot": 42.65,
+                    "day": 9,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 103,
+                    "eot": 42.39,
+                    "day": 19,
+                    "mtb": 4,
+                    "overdue": false
+                },
+                {
+                    "id": 113,
+                    "eot": 42.35,
+                    "day": 22,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 21,
+                    "eot": 42.25,
+                    "day": 4,
+                    "mtb": 7,
+                    "overdue": false
+                },
+                {
+                    "id": 35,
+                    "eot": 41.39,
+                    "day": 6,
+                    "mtb": 26,
+                    "overdue": false
+                },
+                {
+                    "id": 24,
+                    "eot": 41.18,
+                    "day": 5,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 70,
+                    "eot": 40.77,
+                    "day": 13,
+                    "mtb": 21,
+                    "overdue": false
+                },
+                {
+                    "id": 110,
+                    "eot": 40.58,
+                    "day": 21,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 85,
+                    "eot": 40.04,
+                    "day": 16,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 75,
+                    "eot": 39.83,
+                    "day": 14,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 19,
+                    "eot": 39.52,
+                    "day": 4,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 122,
+                    "eot": 37.72,
+                    "day": 23,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 57,
+                    "eot": 36.73,
+                    "day": 10,
+                    "mtb": 3,
+                    "overdue": false
+                },
+                {
+                    "id": 131,
+                    "eot": 35.9,
+                    "day": 24,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 51,
+                    "eot": 35.68,
+                    "day": 9,
+                    "mtb": 23,
+                    "overdue": false
+                },
+                {
+                    "id": 42,
+                    "eot": 34.59,
+                    "day": 8,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 98,
+                    "eot": 34.45,
+                    "day": 18,
+                    "mtb": 19,
+                    "overdue": false
+                },
+                {
+                    "id": 118,
+                    "eot": 32.35,
+                    "day": 22,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 83,
+                    "eot": 30.83,
+                    "day": 16,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 128,
+                    "eot": 30.66,
+                    "day": 24,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 176,
+                    "eot": 30.64,
+                    "day": 34,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 15,
+                    "eot": 30.21,
+                    "day": 2,
+                    "mtb": 19,
+                    "overdue": false
+                },
+                {
+                    "id": 74,
+                    "eot": 29.58,
+                    "day": 13,
+                    "mtb": 25,
+                    "overdue": false
+                },
+                {
+                    "id": 121,
+                    "eot": 29.48,
+                    "day": 23,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 107,
+                    "eot": 29.38,
+                    "day": 20,
+                    "mtb": 10,
+                    "overdue": false
+                },
+                {
+                    "id": 58,
+                    "eot": 26.33,
+                    "day": 10,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 144,
+                    "eot": 25.41,
+                    "day": 27,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 71,
+                    "eot": 24.12,
+                    "day": 13,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 61,
+                    "eot": 21.37,
+                    "day": 11,
+                    "mtb": 7,
+                    "overdue": false
+                }
+            ]
+        },
+        {
+            "week": 2,
+            "patients": [
+                {
+                    "id": 287,
+                    "eot": 88.15,
+                    "day": 58,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 282,
+                    "eot": 86.35,
+                    "day": 57,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 152,
+                    "eot": 74.08,
+                    "day": 28,
+                    "mtb": 22,
+                    "overdue": false
+                },
+                {
+                    "id": 225,
+                    "eot": 72.01,
+                    "day": 44,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 232,
+                    "eot": 69.43,
+                    "day": 45,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 189,
+                    "eot": 67.69,
+                    "day": 35,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 271,
+                    "eot": 65.9,
+                    "day": 54,
+                    "mtb": 21,
+                    "overdue": false
+                },
+                {
+                    "id": 268,
+                    "eot": 65.19,
+                    "day": 54,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 164,
+                    "eot": 59.7,
+                    "day": 31,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 167,
+                    "eot": 58.48,
+                    "day": 32,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 233,
+                    "eot": 57.97,
+                    "day": 46,
+                    "mtb": 19,
+                    "overdue": false
+                },
+                {
+                    "id": 289,
+                    "eot": 57.76,
+                    "day": 58,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 227,
+                    "eot": 56.39,
+                    "day": 45,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 155,
+                    "eot": 56.03,
+                    "day": 29,
+                    "mtb": 7,
+                    "overdue": false
+                },
+                {
+                    "id": 188,
+                    "eot": 55.76,
+                    "day": 35,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 182,
+                    "eot": 55.46,
+                    "day": 35,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 191,
+                    "eot": 54.73,
+                    "day": 36,
+                    "mtb": 9,
+                    "overdue": false
+                },
+                {
+                    "id": 230,
+                    "eot": 53.08,
+                    "day": 45,
+                    "mtb": 21,
+                    "overdue": false
+                },
+                {
+                    "id": 206,
+                    "eot": 51.47,
+                    "day": 40,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 196,
+                    "eot": 49.38,
+                    "day": 37,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 168,
+                    "eot": 48.52,
+                    "day": 32,
+                    "mtb": 21,
+                    "overdue": false
+                },
+                {
+                    "id": 181,
+                    "eot": 47.91,
+                    "day": 34,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 274,
+                    "eot": 47.19,
+                    "day": 55,
+                    "mtb": 9,
+                    "overdue": false
+                },
+                {
+                    "id": 169,
+                    "eot": 46.75,
+                    "day": 32,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 186,
+                    "eot": 45.42,
+                    "day": 35,
+                    "mtb": 8,
+                    "overdue": false
+                },
+                {
+                    "id": 259,
+                    "eot": 44.75,
+                    "day": 52,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 281,
+                    "eot": 43.31,
+                    "day": 57,
+                    "mtb": 9,
+                    "overdue": false
+                },
+                {
+                    "id": 180,
+                    "eot": 43.14,
+                    "day": 34,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 193,
+                    "eot": 41.98,
+                    "day": 36,
+                    "mtb": 8,
+                    "overdue": false
+                },
+                {
+                    "id": 177,
+                    "eot": 40.89,
+                    "day": 34,
+                    "mtb": 19,
+                    "overdue": false
+                },
+                {
+                    "id": 263,
+                    "eot": 40.58,
+                    "day": 53,
+                    "mtb": 22,
+                    "overdue": false
+                },
+                {
+                    "id": 172,
+                    "eot": 40.12,
+                    "day": 33,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 246,
+                    "eot": 37.51,
+                    "day": 49,
+                    "mtb": 20,
+                    "overdue": false
+                },
+                {
+                    "id": 299,
+                    "eot": 37.21,
+                    "day": 60,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 240,
+                    "eot": 37.16,
+                    "day": 47,
+                    "mtb": 6,
+                    "overdue": false
+                },
+                {
+                    "id": 249,
+                    "eot": 36.88,
+                    "day": 49,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 163,
+                    "eot": 36.59,
+                    "day": 30,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 295,
+                    "eot": 36.15,
+                    "day": 60,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 170,
+                    "eot": 35.43,
+                    "day": 33,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 266,
+                    "eot": 35.37,
+                    "day": 53,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 195,
+                    "eot": 33.67,
+                    "day": 36,
+                    "mtb": 9,
+                    "overdue": false
+                },
+                {
+                    "id": 280,
+                    "eot": 33.08,
+                    "day": 57,
+                    "mtb": 23,
+                    "overdue": false
+                },
+                {
+                    "id": 236,
+                    "eot": 31.93,
+                    "day": 46,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 284,
+                    "eot": 31.8,
+                    "day": 57,
+                    "mtb": 22,
+                    "overdue": false
+                },
+                {
+                    "id": 194,
+                    "eot": 31.2,
+                    "day": 36,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 205,
+                    "eot": 30.22,
+                    "day": 40,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 241,
+                    "eot": 29.62,
+                    "day": 48,
+                    "mtb": 19,
+                    "overdue": false
+                },
+                {
+                    "id": 238,
+                    "eot": 27.71,
+                    "day": 47,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 237,
+                    "eot": 26.09,
+                    "day": 46,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 456,
+                    "eot": 22.53,
+                    "day": 96,
+                    "mtb": 21,
+                    "overdue": false
+                },
+                {
+                    "id": 250,
+                    "eot": 21.92,
+                    "day": 50,
+                    "mtb": 9,
+                    "overdue": false
+                }
+            ]
+        },
+        {
+            "week": 3,
+            "patients": [
+                {
+                    "id": 350,
+                    "eot": 105.01,
+                    "day": 71,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 406,
+                    "eot": 90.63,
+                    "day": 84,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 352,
+                    "eot": 85.61,
+                    "day": 71,
+                    "mtb": 20,
+                    "overdue": false
+                },
+                {
+                    "id": 398,
+                    "eot": 82.38,
+                    "day": 83,
+                    "mtb": 22,
+                    "overdue": false
+                },
+                {
+                    "id": 435,
+                    "eot": 81.68,
+                    "day": 92,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 303,
+                    "eot": 79.06,
+                    "day": 61,
+                    "mtb": 7,
+                    "overdue": false
+                },
+                {
+                    "id": 307,
+                    "eot": 68.08,
+                    "day": 62,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 343,
+                    "eot": 66.77,
+                    "day": 70,
+                    "mtb": 9,
+                    "overdue": false
+                },
+                {
+                    "id": 402,
+                    "eot": 63.02,
+                    "day": 83,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 327,
+                    "eot": 62.92,
+                    "day": 68,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 420,
+                    "eot": 62.31,
+                    "day": 89,
+                    "mtb": 10,
+                    "overdue": false
+                },
+                {
+                    "id": 308,
+                    "eot": 60.35,
+                    "day": 62,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 346,
+                    "eot": 58.28,
+                    "day": 70,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 374,
+                    "eot": 58.24,
+                    "day": 75,
+                    "mtb": 21,
+                    "overdue": false
+                },
+                {
+                    "id": 332,
+                    "eot": 57.03,
+                    "day": 68,
+                    "mtb": 6,
+                    "overdue": false
+                },
+                {
+                    "id": 457,
+                    "eot": 51.55,
+                    "day": 96,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 333,
+                    "eot": 50.81,
+                    "day": 68,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 362,
+                    "eot": 49.81,
+                    "day": 73,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 408,
+                    "eot": 49.74,
+                    "day": 84,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 385,
+                    "eot": 49.66,
+                    "day": 78,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 422,
+                    "eot": 49.32,
+                    "day": 90,
+                    "mtb": 32,
+                    "overdue": false
+                },
+                {
+                    "id": 309,
+                    "eot": 49.01,
+                    "day": 62,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 388,
+                    "eot": 47.05,
+                    "day": 79,
+                    "mtb": 14,
+                    "overdue": false
+                },
+                {
+                    "id": 365,
+                    "eot": 45.94,
+                    "day": 74,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 450,
+                    "eot": 45.33,
+                    "day": 95,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 311,
+                    "eot": 45.24,
+                    "day": 63,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 445,
+                    "eot": 44.49,
+                    "day": 94,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 448,
+                    "eot": 43.61,
+                    "day": 95,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 315,
+                    "eot": 42.04,
+                    "day": 64,
+                    "mtb": 21,
+                    "overdue": false
+                },
+                {
+                    "id": 411,
+                    "eot": 41.63,
+                    "day": 86,
+                    "mtb": 9,
+                    "overdue": false
+                },
+                {
+                    "id": 381,
+                    "eot": 40.28,
+                    "day": 78,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 404,
+                    "eot": 40.19,
+                    "day": 83,
+                    "mtb": 22,
+                    "overdue": false
+                },
+                {
+                    "id": 452,
+                    "eot": 39.06,
+                    "day": 95,
+                    "mtb": 12,
+                    "overdue": false
+                },
+                {
+                    "id": 453,
+                    "eot": 38.89,
+                    "day": 95,
+                    "mtb": 22,
+                    "overdue": false
+                },
+                {
+                    "id": 366,
+                    "eot": 38.75,
+                    "day": 74,
+                    "mtb": 15,
+                    "overdue": false
+                },
+                {
+                    "id": 417,
+                    "eot": 38.55,
+                    "day": 88,
+                    "mtb": 11,
+                    "overdue": false
+                },
+                {
+                    "id": 395,
+                    "eot": 38.31,
+                    "day": 81,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 354,
+                    "eot": 37.44,
+                    "day": 72,
+                    "mtb": 24,
+                    "overdue": false
+                },
+                {
+                    "id": 331,
+                    "eot": 36.27,
+                    "day": 68,
+                    "mtb": 16,
+                    "overdue": false
+                },
+                {
+                    "id": 375,
+                    "eot": 36.07,
+                    "day": 76,
+                    "mtb": 9,
+                    "overdue": false
+                },
+                {
+                    "id": 337,
+                    "eot": 32.16,
+                    "day": 69,
+                    "mtb": 18,
+                    "overdue": false
+                },
+                {
+                    "id": 313,
+                    "eot": 30.88,
+                    "day": 64,
+                    "mtb": 24,
+                    "overdue": false
+                },
+                {
+                    "id": 415,
+                    "eot": 30.59,
+                    "day": 87,
+                    "mtb": 13,
+                    "overdue": false
+                },
+                {
+                    "id": 377,
+                    "eot": 30.58,
+                    "day": 77,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 440,
+                    "eot": 29.04,
+                    "day": 93,
+                    "mtb": 25,
+                    "overdue": false
+                },
+                {
+                    "id": 413,
+                    "eot": 28.14,
+                    "day": 86,
+                    "mtb": 9,
+                    "overdue": false
+                },
+                {
+                    "id": 339,
+                    "eot": 25.54,
+                    "day": 69,
+                    "mtb": 21,
+                    "overdue": false
+                }
+            ]
+        },
+        {
+            "week": 4,
+            "patients": [
+                {
+                    "id": 466,
+                    "eot": 46.43,
+                    "day": 99,
+                    "mtb": 17,
+                    "overdue": false
+                },
+                {
+                    "id": 460,
+                    "eot": 45.34,
+                    "day": 99,
+                    "mtb": 13,
+                    "overdue": false
+                }
+            ]
+        }
+    ]
+}
