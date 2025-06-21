@@ -1,1 +1,1 @@
-from .CommonClass import Patient, Week
+from .CommonClass import OperationPatient, WeekSchedule
