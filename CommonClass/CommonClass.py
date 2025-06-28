@@ -1,4 +1,5 @@
-
+from plotly.graph_objects import Figure 
+import plotly.graph_objects as go 
 from dataclasses import dataclass
 from typing import List 
 
@@ -18,6 +19,19 @@ class Patient:
         self.eot = eot
         self.day = day
         self.mtb = mtb
+    
+    def setTrace (self, figure: Figure, color_map, text: str, mins: float) -> Figure:
+        figure.add_trace(go.Bar(
+            x=[text + f"|ToTMin:{mins}"], 
+            y=[self.eot], 
+            name=f"Patient {self.id}",  
+            hoverinfo="text",  
+            text=[f"Patient {self.id}: {int(self.eot)}m {int((self.eot % 1) * 60)}s"],  
+            marker=dict(color=color_map[self.id]),  
+            cliponaxis=True,
+            textposition='inside'
+        ))
+        return figure
 
     def to_dict(self):
         return {
@@ -26,31 +40,29 @@ class Patient:
             "day": self.day,
             "mtb": self.mtb
         }
+    @classmethod
+    def from_dict(cls, data):
+        return cls(data['id'], data['eot'], data['day'], data['mtb'])
 
 @dataclass
 class OperationPatient(Patient):
     overdue: int
 
     def to_dict(self):
-        return {
-            "id": self.id,
-            "eot": self.eot,
-            "day": self.day,
-            "mtb": self.mtb,
-            "overdue": self.overdue
-        }
-
-@dataclass
-class WeekSchedule:
-    week: int
-    patients: List[OperationPatient]
+        # return {
+        #     "id": self.id,
+        #     "eot": self.eot,
+        #     "day": self.day,
+        #     "mtb": self.mtb,
+        #     "overdue": self.overdue
+        # }        
+        d = super().to_dict()
+        d.update({'overdue': self.overdue})
+        return d
     
-    def Fill_Operation(list: List):
-        weeks=[]
-        for w in list:
-            patients = [OperationPatient(**patient) for patient in w["patients"]]
-            weeks.append(WeekSchedule(week=w["week"], patients=patients))
-        return weeks
+    @classmethod
+    def from_dict(cls, data):
+        return cls(data['id'], data['eot'], data['day'], data['mtb'], data['overdue'])
 
 @dataclass
 class DailySchedule:
@@ -61,6 +73,35 @@ class DailySchedule:
     def getTime(self) -> int: 
         return sum(p.eot for p in self.patients)
 
+    def insertPatient(self, patient: OperationPatient) -> bool:
+        if patient.eot + sum(p.eot for p in self.patients) > self._minute_of_the_day_:
+            return False
+        else:
+            self.patients.append(patient)
+            return True
+
+    def setTrace (self, figure: Figure, color_map, text: str) -> Figure:
+        mins = sum(p.eot for p in self.patients)
+        for p in self.patients:
+            figure = p.setTrace(figure, color_map, text + f"|Day:{self.day.name}", mins)
+        return figure
+
+    def to_dict(self):
+        return {
+            "day":self.day.name,
+            "patients":[p.to_dict() for p in self.patients]
+        }
+    
+    @classmethod
+    def from_dict(cls, data):
+        patients = [Patient.from_dict(p) for p in data['patients']]
+        return cls(Day[data['day']], patients)
+    
+    # def Fill_Operation(weeks: List[WeekSchedule]):
+    #     week = []
+    #     for w in weeks:
+    #         week.append(DailySchedule.group_daily(w.patients))
+    #     return week
     def group_daily(patientsList: list[OperationPatient]):
         daily_minute = 8*60
         days_for_week = 5
@@ -140,30 +181,12 @@ class DailySchedule:
 
         return grouped_schedule
     
-    def Fill_Operation(weeks: List[WeekSchedule]):
-        week = []
-        for w in weeks:
-            week.append(DailySchedule.group_daily(w.patients))
-        return week
-    
     def Fill_Operation(patients: List):
         week = []
         res = DailySchedule.group_daily_with_mtb_logic(patients=patients)
         return res
+  
 
-    def insertPatient(self, patient: OperationPatient) -> bool:
-        if patient.eot + sum(p.eot for p in self.patients) > self._minute_of_the_day_:
-            return False
-        else:
-            self.patients.append(patient)
-            return True
-        
-    def to_dict(self):
-        return {
-            "day":self.day.name,
-            "patients":[p.to_dict() for p in self.patients]
-        }
-        
 
 @dataclass
 class Week:
@@ -176,10 +199,13 @@ class Week:
             DailySchedule(day=Day.Gio, patients=[]),
             DailySchedule(day=Day.Ven, patients=[]),
             ]
+    def __init__(self, weekNum: int, dailySchedule: list[DailySchedule]):
+        self.weekNum = weekNum
+        self.dailySchedule = dailySchedule
 
     def getDay (self, day: Day) -> DailySchedule:
         return [d for d in self.dailySchedule if d.day == day]
-
+    
     def getDays(self) -> List[DailySchedule]:
         return self.dailySchedule
 
@@ -194,11 +220,32 @@ class Week:
         # se non ritorna true, vuoldire che nella settimana non c'è spazio
         return False
 
+    def setTrace (self, figure: Figure, color_map) -> Figure:
+        for day in self.dailySchedule:
+            figure = day.setTrace(figure, color_map, f"Week:{self.weekNum}")
+        return figure
+
     def to_dict(self):
         return {
             "week":self.weekNum,
             "days":[day.to_dict() for day in self.dailySchedule]
         }
-        
+    @classmethod
+    def from_dict(cls, data):
+        days = [DailySchedule.from_dict(d) for d in data ["days"]]
+        return cls(data['week'], days)    
+
+@dataclass
+class WeekSchedule:
+    week: int
+    patients: List[OperationPatient]
+    
+    def Fill_Operation(list: List):
+        weeks=[]
+        for w in list:
+            patients = [OperationPatient(**patient) for patient in w["patients"]]
+            weeks.append(WeekSchedule(week=w["week"], patients=patients))
+        return weeks
 
 
+    
