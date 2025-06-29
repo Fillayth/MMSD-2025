@@ -12,35 +12,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'C
 
 from CommonClass import Patient, OperationPatient, WeekSchedule, Day, DailySchedule, Week
 
-def PrintDailyGraph(operations : list, title : str): #operation = List[4][5][DailySchedule]
-    fig = go.Figure()
-    color_map = {p["id"]: f"hsl({random.randint(0, 360)}, 70%, 50%)" for week in operations for day in week["days"] for p in day["patients"]}
-    for week in operations:
-        for day in week["days"]:
-            mins = sum(p["eot"] for p in day["patients"])
-            for p in day["patients"]:
-                patient = Patient(id=p["id"], eot=p["eot"], day=p["day"], mtb=p["mtb"])
-                fig.add_trace(go.Bar(
-                    x=[f"ZWeek:{week["week"]}|Day:{day["day"]}|ToTMin:{mins}"], 
-                    y=[patient.eot], 
-                    name=f"Patient {patient.id}",  
-                    hoverinfo="text",  
-                    text=[f"Patient {patient.id}: {int(patient.eot)}m {int((patient.eot % 1) * 60)}s"],  
-                    marker=dict(color=color_map[patient.id]),  
-                    cliponaxis=True,
-                    textposition='inside'
-                ))
-
-    fig.update_layout(
-        barmode="stack",  
-        title=title,
-        showlegend=False,
-        yaxis_title="Minuti Totali",
-        xaxis_title="Giorni"
-    )
-
-    fig.show()
-
 def PrintDailyGraph(operations : list[Week], title : str): 
     weeks = [Week.from_dict(w) for w in data[title]]
     fig = go.Figure()
@@ -95,7 +66,34 @@ if __name__ == "__main__":
     
     # DailyGraph(ops)
 
+# def PrintDailyGraph(operations : list, title : str): #operation = List[4][5][DailySchedule]
+#     fig = go.Figure()
+#     color_map = {p["id"]: f"hsl({random.randint(0, 360)}, 70%, 50%)" for week in operations for day in week["days"] for p in day["patients"]}
+#     for week in operations:
+#         for day in week["days"]:
+#             mins = sum(p["eot"] for p in day["patients"])
+#             for p in day["patients"]:
+#                 patient = Patient(id=p["id"], eot=p["eot"], day=p["day"], mtb=p["mtb"])
+#                 fig.add_trace(go.Bar(
+#                     x=[f"ZWeek:{week["week"]}|Day:{day["day"]}|ToTMin:{mins}"], 
+#                     y=[patient.eot], 
+#                     name=f"Patient {patient.id}",  
+#                     hoverinfo="text",  
+#                     text=[f"Patient {patient.id}: {int(patient.eot)}m {int((patient.eot % 1) * 60)}s"],  
+#                     marker=dict(color=color_map[patient.id]),  
+#                     cliponaxis=True,
+#                     textposition='inside'
+#                 ))
 
+#     fig.update_layout(
+#         barmode="stack",  
+#         title=title,
+#         showlegend=False,
+#         yaxis_title="Minuti Totali",
+#         xaxis_title="Giorni"
+#     )
+
+#     fig.show()
 
 def PrintGraph(operations : list, title : str):
     fig = go.Figure()

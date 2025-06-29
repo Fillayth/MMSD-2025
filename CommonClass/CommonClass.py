@@ -45,8 +45,10 @@ class Patient:
         return cls(data['id'], data['eot'], data['day'], data['mtb'])
 
 @dataclass
-class OperationPatient(Patient):
-    overdue: int
+class OperationPatient(Patient):    #potrebbe venire anche deprecato ormai 
+    def __init__(self, id: int, eot: float, day: int, mtb: int, overdue: int):
+        super().__init__(id, eot, day, mtb)
+        self.overdue = overdue
 
     def to_dict(self):
         # return {
@@ -185,8 +187,6 @@ class DailySchedule:
         week = []
         res = DailySchedule.group_daily_with_mtb_logic(patients=patients)
         return res
-  
-
 
 @dataclass
 class Week:
@@ -199,15 +199,6 @@ class Week:
             DailySchedule(day=Day.Gio, patients=[]),
             DailySchedule(day=Day.Ven, patients=[]),
             ]
-    def __init__(self, weekNum: int, dailySchedule: list[DailySchedule]):
-        self.weekNum = weekNum
-        self.dailySchedule = dailySchedule
-
-    def getDay (self, day: Day) -> DailySchedule:
-        return [d for d in self.dailySchedule if d.day == day]
-    
-    def getDays(self) -> List[DailySchedule]:
-        return self.dailySchedule
 
     def insertPatient(self, patient: OperationPatient) -> bool:
         # #per mantenere il bool sull urgenza 
@@ -232,8 +223,11 @@ class Week:
         }
     @classmethod
     def from_dict(cls, data):
-        days = [DailySchedule.from_dict(d) for d in data ["days"]]
-        return cls(data['week'], days)    
+        week = cls(data['week'])    
+        week.dailySchedule = [DailySchedule.from_dict(d) for d in data ["days"]]
+        return week
+
+
 
 @dataclass
 class WeekSchedule:
