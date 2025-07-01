@@ -83,7 +83,7 @@ class DailySchedule:
             return True
 
     def setTrace (self, figure: Figure, color_map, text: str) -> Figure:
-        mins = sum(p.eot for p in self.patients)
+        mins = round(sum(p.eot for p in self.patients), 2)
         for p in self.patients:
             figure = p.setTrace(figure, color_map, text + f"|Day:{self.day.name}", mins)
         return figure

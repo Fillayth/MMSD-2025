@@ -37,34 +37,33 @@ def read_and_split_by_operation_with_metadata(csv_file):
             ))
     return ops
 
-def group_daily_with_mtb_logic(ops_dict):
-    today_number = 0
+def group_daily_with_mtb_logic(ops_dict) ->List[Week]:
+    day_for_week = 5
     weekNum = 0
+    today_number = lambda wN: day_for_week * wN #weekNum  
     # le settimana da definire
     weeks: List[Week] = []
     patients = ops_dict.copy()
-    # si prendono in considerazione tutti gli utenti di una data Operazione
     week = Week(weekNum)
     while patients:
-        #riempio una settimana 
-        ordered = sorted(patients, key= lambda x: x.day + x.mtb - today_number, reverse=False ) 
-        # serve far emergere i patient con eot piu alti nella cerchia dei piu urgenti 
-        firstSet = [p for p in ordered if p.day + p.mtb <= today_number + 10] #today_number + ho impostato due settimane come cerchia
-        secondSet = [p for p in ordered if p.day + p.mtb > today_number + 10] #prendo il resto 
+        ordered = sorted(patients, key= lambda x: x.day + x.mtb - today_number(weekNum), reverse=False ) 
+        # serve far emergere i patient con eot piu alti nella cerchia dei piu urgenti per ottimizzare gli spazi 
+        firstSet = [p for p in ordered if p.day + p.mtb <= today_number(weekNum + 2)] #today_number + ho impostato due settimane come cerchia
+        secondSet = [p for p in ordered if p.day + p.mtb > today_number(weekNum + 2)] #prendo il resto 
         ordered = sorted(firstSet, key= lambda x: x.eot, reverse=True) + secondSet
+        # ciclo i pazienti rimasti fino a riempire la settimana in coso 
         for p in ordered:
             # la funzione restituisce true se il paziente è stato inserito 
             if week.insertPatient(p):
-                #rimuovo i pazieniti da entrambe le liste provvisorie 
+                #rimuovo i pazieniti dalla lista provvisoria 
                 patients.remove(p)
-                #ordered.pop(i)
         ## se il ciclo finisce e i pazienti sono ancora presenti vuol dire che la settimana si è riempita
         ## e ne serve una nuova 
         if len(patients) > 0 :
             weeks.append(week)
             weekNum +=1
             week = Week(weekNum)
-            today_number += 5
+            #today_number += 5
     #alla fine del cilo sui pazienti totali, inserisco anche l'ultima settimana nella lista
     weeks.append(week)
 
@@ -136,6 +135,7 @@ if __name__ == "__main__":
         "Operazione C":[],
     }
     ops = read_and_split_by_operation_with_metadata("lista_attesa_simulata.csv")
+    # si prendono in considerazione tutti gli utenti per una data Operazione
     schedule["Operazione A"] = group_daily_with_mtb_logic(ops["Operazione A"])
     schedule["Operazione B"] = group_daily_with_mtb_logic(ops["Operazione B"])
     schedule["Operazione C"] = group_daily_with_mtb_logic(ops["Operazione C"])

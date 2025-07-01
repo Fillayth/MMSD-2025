@@ -16,8 +16,7 @@ def PrintDailyGraph(operations : list[Week], title : str):
     weeks = [Week.from_dict(w) for w in data[title]]
     fig = go.Figure()
     color_map = {p.id: f"hsl({random.randint(0, 360)}, 70%, 50%)" for week in weeks for day in week.dailySchedule for p in day.patients}
-    # per ogni settimana richiamo la funzione che crea la colonna del grafico
-    # la funzione si propaghera fino ai patients a seconda della struttura che abbiamo definito per gestire i pazieni
+    # la funzione si propaghera fino ai patients a seconda della struttura che abbiamo definito per gestire i pazieni e cosi gestire le colonne del grafo
     for week in weeks:
         fig = week.setTrace(fig, color_map)
     fig.update_layout(

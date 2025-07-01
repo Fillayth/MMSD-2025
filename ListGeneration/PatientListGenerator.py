@@ -154,7 +154,7 @@ if __name__ == "__main__":
 
     generate_csv(
         file_name="lista_attesa_simulata.csv",
-        num_days=100,  # Numero di giorni consecutivi da simulare
+        num_days=1000,  # Numero di giorni consecutivi da simulare
         utenti_per_giorno_distribution='poisson',
         utenti_per_giorno_mean=5,
         utenti_per_giorno_std=2,
