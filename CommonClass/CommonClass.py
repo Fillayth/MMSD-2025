@@ -12,6 +12,41 @@ class Day(Enum):
     Gio = 3
     Ven = 4
 
+class Operation(Enum):
+    OpA = "Operazione A" 
+    OpB = "Operazione B"
+    OpC = "Operazione C"
+
+class Operations:
+    def __init__(self):
+        self.list = {Operation.OpA.value: [], Operation.OpB.value: [], Operation.OpC.value: []}
+    def __setitem__(self, key, value):
+        self.list[key] = value
+    def __getitem__(self, key):
+        return self.list[key]
+    def __iter__(self):
+        return iter(self.list)
+    def values(self):
+        return self.list.values()
+    def items(self):
+        return self.list.items()
+
+    #region: Funzioni Json
+    def to_dict(self):
+        return {
+            key: [w.to_dict() for w in weeks] for key, weeks in self.list.items()
+        }
+    
+    @classmethod
+    def from_dict(cls, data):
+        obj = cls()
+        for key, value in data.items():
+            if key not in obj.list:
+                raise ValueError(f"Chiave non valida: {key}")
+            obj[key] = [Week.from_dict(w) for w in value]
+        return obj
+    #endregion
+
 @dataclass
 class Patient:
     def __init__(self, id: int, eot: float, day: int, mtb: int):
@@ -20,6 +55,7 @@ class Patient:
         self.day = day
         self.mtb = mtb
     
+    #region: Funzioni Grafiche
     def setTrace (self, figure: Figure, color_map, text: str, mins: float) -> Figure:
         figure.add_trace(go.Bar(
             x=[text + f"|ToTMin:{mins}"], 
@@ -32,7 +68,8 @@ class Patient:
             textposition='inside'
         ))
         return figure
-
+    #endregion
+    #region: Funzioni Json
     def to_dict(self):
         return {
             "id": self.id,
@@ -43,21 +80,15 @@ class Patient:
     @classmethod
     def from_dict(cls, data):
         return cls(data['id'], data['eot'], data['day'], data['mtb'])
+    #endregion
 
 @dataclass
 class OperationPatient(Patient):    #potrebbe venire anche deprecato ormai 
     def __init__(self, id: int, eot: float, day: int, mtb: int, overdue: int):
         super().__init__(id, eot, day, mtb)
         self.overdue = overdue
-
-    def to_dict(self):
-        # return {
-        #     "id": self.id,
-        #     "eot": self.eot,
-        #     "day": self.day,
-        #     "mtb": self.mtb,
-        #     "overdue": self.overdue
-        # }        
+    #region: Funzioni Json
+    def to_dict(self):        
         d = super().to_dict()
         d.update({'overdue': self.overdue})
         return d
@@ -65,13 +96,19 @@ class OperationPatient(Patient):    #potrebbe venire anche deprecato ormai
     @classmethod
     def from_dict(cls, data):
         return cls(data['id'], data['eot'], data['day'], data['mtb'], data['overdue'])
+    #endregion
 
 @dataclass
 class DailySchedule:
     day: Day
     patients: List[OperationPatient]
     _minute_of_the_day_: int = 480
-    
+
+    def copy(self):
+        copy = DailySchedule(self.day, self.patients)
+        return copy
+
+    #region: Funzioni 
     def getTime(self) -> int: 
         return sum(p.eot for p in self.patients)
 
@@ -81,13 +118,27 @@ class DailySchedule:
         else:
             self.patients.append(patient)
             return True
-
-    def setTrace (self, figure: Figure, color_map, text: str) -> Figure:
+    def swapPatient(self, patient1: OperationPatient, patient2: OperationPatient) -> bool:
+        list = self.patients.copy()
+        list.remove(patient1)
+        list.insert(patient2)
+        if sum(p.eot for p in list) > self._minute_of_the_day_:
+            return False
+        else:
+            self.patients = list
+            return True
+            
+    
+#endregion
+    #region: Funzioni Grafiche 
+    def setTrace(self, figure: Figure, color_map, text: str) -> Figure:
         mins = round(sum(p.eot for p in self.patients), 2)
         for p in self.patients:
             figure = p.setTrace(figure, color_map, text + f"|Day:{self.day.name}", mins)
         return figure
 
+#endregion
+    #region: Funzioni Json
     def to_dict(self):
         return {
             "day":self.day.name,
@@ -98,95 +149,7 @@ class DailySchedule:
     def from_dict(cls, data):
         patients = [Patient.from_dict(p) for p in data['patients']]
         return cls(Day[data['day']], patients)
-    
-    # def Fill_Operation(weeks: List[WeekSchedule]):
-    #     week = []
-    #     for w in weeks:
-    #         week.append(DailySchedule.group_daily(w.patients))
-    #     return week
-    def group_daily(patientsList: list[OperationPatient]):
-        daily_minute = 8*60
-        days_for_week = 5
-        remaining = sorted(patientsList, key=lambda p: p.eot)
-        daily_schedules = [
-            DailySchedule(day=Day.Lun, patients=[]),
-            DailySchedule(day=Day.Mar, patients=[]),
-            DailySchedule(day=Day.Mer, patients=[]),
-            DailySchedule(day=Day.Gio, patients=[]),
-            DailySchedule(day=Day.Ven, patients=[]),
-            ]
-        
-        dayNum=0
-        run = 0
-        leng = len(remaining)
-        while remaining and run <= leng * days_for_week:
-            if remaining[0].eot + daily_schedules[dayNum].getTime() <= daily_minute :
-                daily_schedules[dayNum].patients.append(remaining[0])
-                remaining.remove(remaining[0])
-            if dayNum < days_for_week - 1:
-                dayNum += 1
-            else:
-                dayNum = 0
-            run += 1
-
-        return daily_schedules
-
-    def group_daily_with_mtb_logic(patients, daily_limit=60*8, week_length_days=5):
-        grouped_schedule = []
-
-        # for op_type, patients in ops_dict.items():
-        #     remaining = patients.copy()
-        #     week_number = 0
-        #     grouped_schedule[op_type] = []
-        remaining = patients.copy()
-        day_number = 0
-        run = 0
-        leng= len(patients)
-        while remaining and run <= leng:
-            run += 1
-            current_day_start = day_number * week_length_days
-            current_day_end = current_day_start + week_length_days - 1
-            next_day_end = current_day_end + week_length_days
-
-            batch = []
-            total_time = 0
-
-            overdue_now = [p for p in remaining if current_day_end - p["day"] >= p["mtb"]]
-            overdue_next = [p for p in remaining if next_day_end - p["day"] >= p["mtb"]
-                            and p not in overdue_now]
-            normal = [p for p in remaining if p not in overdue_now and p not in overdue_next]
-            ordered = overdue_now + overdue_next + normal
-
-            i = 0
-            while i < len(ordered):
-                p = ordered[i]
-                if total_time + p["eot"] <= daily_limit:
-                    batch.append({
-                        "id": p["id"],
-                        "eot": round(p["eot"], 2),
-                        "day": p["day"],
-                        "mtb": p["mtb"],
-                        "overdue": current_day_end - p["day"] >= p["mtb"]
-                    })
-                    total_time += p["eot"]
-                    remaining.remove(p)
-                    ordered.pop(i)
-                else:
-                    i += 1
-
-            # Sort
-            batch.sort(key=lambda x: x["eot"], reverse=True)
-
-            grouped_schedule.append(WeekSchedule(week=week_number + 1, patients=batch)) #àserve impostare la divisione in giorni 
-
-            week_number += 1
-
-        return grouped_schedule
-    
-    def Fill_Operation(patients: List):
-        week = []
-        res = DailySchedule.group_daily_with_mtb_logic(patients=patients)
-        return res
+#endregion
 
 @dataclass
 class Week:
@@ -199,7 +162,8 @@ class Week:
             DailySchedule(day=Day.Gio, patients=[]),
             DailySchedule(day=Day.Ven, patients=[]),
             ]
-
+    
+    #region: Funzioni 
     def insertPatient(self, patient: OperationPatient) -> bool:
         # #per mantenere il bool sull urgenza 
         # p = OperationPatient(patient)
@@ -210,36 +174,26 @@ class Week:
                 return True
         # se non ritorna true, vuoldire che nella settimana non c'è spazio
         return False
-
+    #endregion
+    #region: Funzioni Grafiche
     def setTrace (self, figure: Figure, color_map) -> Figure:
         for day in self.dailySchedule:
             figure = day.setTrace(figure, color_map, f"Week:{self.weekNum}")
         return figure
-
+    #endregion
+    #region: Funzioni Json
     def to_dict(self):
         return {
             "week":self.weekNum,
             "days":[day.to_dict() for day in self.dailySchedule]
         }
+    
     @classmethod
     def from_dict(cls, data):
         week = cls(data['week'])    
         week.dailySchedule = [DailySchedule.from_dict(d) for d in data ["days"]]
         return week
-
-
-
-@dataclass
-class WeekSchedule:
-    week: int
-    patients: List[OperationPatient]
-    
-    def Fill_Operation(list: List):
-        weeks=[]
-        for w in list:
-            patients = [OperationPatient(**patient) for patient in w["patients"]]
-            weeks.append(WeekSchedule(week=w["week"], patients=patients))
-        return weeks
+    #endregion
 
 
     
