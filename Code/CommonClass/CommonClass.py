@@ -12,14 +12,18 @@ class Day(Enum):
     Gio = 3
     Ven = 4
 
-class Operation(Enum):
-    OpA = "Operazione A" 
-    OpB = "Operazione B"
-    OpC = "Operazione C"
+class Specialty(Enum):
+    OpA = "Specialty A" 
+    OpB = "Specialty B"
+    OpC = "Specialty C"
 
-class Operations:
-    def __init__(self):
-        self.list = {Operation.OpA.value: [], Operation.OpB.value: [], Operation.OpC.value: []}
+class PatientListForSpecialties: #PLFS
+    """ Classe per gestire le liste di pazienti per specialità    """
+    def __init__(self, name: str = "Specialty A"):
+        self.list = {
+            Specialty.OpA.value: []} 
+            # Operation.OpB.value: [], 
+            # Operation.OpC.value: []}
     def __setitem__(self, key, value):
         self.list[key] = value
     def __getitem__(self, key):
@@ -46,6 +50,49 @@ class Operations:
             obj[key] = [Week.from_dict(w) for w in value]
         return obj
     #endregion
+
+
+class OperatingRoom(Enum):
+    OR1 = "OR1"
+    OR2 = "OR2"
+    OR3 = "OR3"
+
+    @classmethod
+    def from_string(cls, value: str):
+        for room in cls:
+            if room.value == value:
+                return room
+        raise ValueError(f"Invalid operating room: {value}")
+
+class OpratingRoomManager:
+    def __init__(self, numRoom: int , specialty: Specialty):
+        self.specialty = specialty
+        self.numRoom = numRoom
+        if numRoom < 1 or numRoom > 3:
+            raise ValueError("Number of operating rooms must be between 1 and 3.")
+        if numRoom == 1:
+            self.rooms = {OperatingRoom.OR1: []}
+        elif numRoom == 2:
+            self.rooms = {
+                OperatingRoom.OR1: [],
+                OperatingRoom.OR2: []
+            }
+        else:  # numRoom == 3
+            self.rooms = {
+                OperatingRoom.OR1: [],
+                OperatingRoom.OR2: [],
+                OperatingRoom.OR3: []
+            }
+    
+    def assign_patient(self, room: OperatingRoom, patient: 'Patient'):
+        if room in self.rooms:
+            self.rooms[room].append(patient)
+        else:
+            raise ValueError(f"Invalid operating room: {room}")
+    
+    def get_patients(self, room: OperatingRoom) -> List['Patient']:
+        return self.rooms.get(room, [])
+
 
 @dataclass
 class Patient:
@@ -82,26 +129,11 @@ class Patient:
         return cls(data['id'], data['eot'], data['day'], data['mtb'])
     #endregion
 
-@dataclass
-class OperationPatient(Patient):    #potrebbe venire anche deprecato ormai 
-    def __init__(self, id: int, eot: float, day: int, mtb: int, overdue: int):
-        super().__init__(id, eot, day, mtb)
-        self.overdue = overdue
-    #region: Funzioni Json
-    def to_dict(self):        
-        d = super().to_dict()
-        d.update({'overdue': self.overdue})
-        return d
-    
-    @classmethod
-    def from_dict(cls, data):
-        return cls(data['id'], data['eot'], data['day'], data['mtb'], data['overdue'])
-    #endregion
 
 @dataclass
 class DailySchedule:
     day: Day
-    patients: List[OperationPatient]
+    patients: List[Patient]
     _minute_of_the_day_: int = 480
 
     def copy(self):
@@ -112,13 +144,13 @@ class DailySchedule:
     def getTime(self) -> int: 
         return sum(p.eot for p in self.patients)
 
-    def insertPatient(self, patient: OperationPatient) -> bool:
+    def insertPatient(self, patient: Patient) -> bool:
         if patient.eot + sum(p.eot for p in self.patients) > self._minute_of_the_day_:
             return False
         else:
             self.patients.append(patient)
             return True
-    def swapPatient(self, patient1: OperationPatient, patient2: OperationPatient) -> bool:
+    def swapPatient(self, patient1: Patient, patient2: Patient) -> bool:
         list = self.patients.copy()
         list.remove(patient1)
         list.insert(patient2)
@@ -164,7 +196,7 @@ class Week:
             ]
     
     #region: Funzioni 
-    def insertPatient(self, patient: OperationPatient) -> bool:
+    def insertPatient(self, patient: Patient) -> bool:
         # #per mantenere il bool sull urgenza 
         # p = OperationPatient(patient)
         # p.overdue = (self.weekNum + 1) * 5 >= patient.day+patient.mtb

@@ -7,7 +7,7 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'CommonClass'))) ## se si crea un file comune in MMSD-2025 che poi orchestra tutte le risorse questo comando non serve 
 
-from CommonClass import Patient, Week, Operation, Operations
+from CommonClass.CommonClass import Patient, Week, PatientListForSpecialties
 
 def read_and_split_by_operation_with_metadata(csv_file):
     with open(csv_file, mode='r', newline='', encoding='utf-8') as f:
@@ -15,18 +15,18 @@ def read_and_split_by_operation_with_metadata(csv_file):
         reader = csv.reader(content)
         lines = list(reader)
 
-    ops = Operations()
+    spc = PatientListForSpecialties()
 
     for row in lines:
-        patient_id, op_type, eot, day, mtb = row
-        #qui ci vorrebbe un throw ex se op_type non è corretto 
-        ops[op_type].append(Patient(
+        patient_id, sp_type, eot, day, mtb = row
+        #qui ci vorrebbe un throw ex se sp_type non è corretto 
+        spc[sp_type].append(Patient(
             id=int(patient_id),
             eot=float(eot),
             day=int(day),
             mtb=int(mtb)
             ))
-    return ops
+    return spc
 
 def group_daily_with_mtb_logic(ops_dict) ->List[Week]:
     day_for_week = 5 #valore statico, lo uso per impostare le settimane 
@@ -63,13 +63,17 @@ def group_daily_with_mtb_logic(ops_dict) ->List[Week]:
 
     return weeks
 
-def export_json_schedule(data, filename="weekly_schedule.json"):
-    with open(filename, "w", encoding="utf-8") as f:
+def export_json_schedule(data, filepath, filename="weekly_schedule.json") -> str:
+    if not os.path.exists(filepath):
+        os.makedirs(filepath)
+    file = os.path.join(filepath, filename)
+    with open(file, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4)
-    print(f"JSON exported to {filename}")
+    print(f"JSON exported to {file}")
+    return file
 
 if __name__ == "__main__":
-    schedule = Operations()
+    schedule = PatientListForSpecialties()
     ops = read_and_split_by_operation_with_metadata("lista_attesa_simulata.csv")
     # si prendono in considerazione tutti gli utenti per una data Operazione
     for opName in schedule:
@@ -80,6 +84,7 @@ if __name__ == "__main__":
     #     key: [w.to_dict() for w in weeks] for key, weeks in schedule.items()
     # }
     # export_json_schedule(dataForJson)
-    export_json_schedule(schedule.to_dict())
+    export_json_schedule(schedule.to_dict(), os.getcwd())
+    #export_json_schedule(schedule.to_dict())
 
 

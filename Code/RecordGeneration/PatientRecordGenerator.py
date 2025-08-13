@@ -59,10 +59,12 @@ def generate_time(K2_params, K7_params, K8_params, K9_params, K3_params):
     # Arrotonda il tempo totale a una cifra decimale
     return round(t_K2 + t_K7 + t_K8 + t_K9 + t_K3, 3)
 
-def write_reports(patient_records, weekly_report, seed):
+def write_reports(patient_records, weekly_report, seed, project_root) -> tuple[str,str] : 
     # Gestisce la creazione delle directory e la scrittura dei file CSV dei pazienti e del report settimanale.
     # La cartella Records viene creata a pari livello della cartella RecordGeneration.
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # records_dir = os.path.join(project_root, "Records")
+    
     records_dir = os.path.join(project_root, "Records")
     seed_dir = os.path.join(records_dir, "seed-" + str(seed))
     os.makedirs(seed_dir, exist_ok=True)
@@ -88,6 +90,8 @@ def write_reports(patient_records, weekly_report, seed):
         report_writer.writerow(["Week", "Used Minutes", "Patients Registered"])
         report_writer.writerows(weekly_report)
 
+    return patients_filename, weekly_filename
+
 def generate_csv(
     specialties,
     weekly_hours,
@@ -101,8 +105,9 @@ def generate_csv(
     people_distribution,
     priority_distribution,
     priority_mean,
-    priority_std
-):
+    priority_std,
+    filepath
+) -> tuple[str, str]:
     # Genera un file CSV con i dati simulati dei pazienti in lista d'attesa.
     # Genera anche un report settimanale con i minuti utilizzati e il numero di pazienti iscritti.
     if seed is None:
@@ -165,7 +170,7 @@ def generate_csv(
     for idx, record in enumerate(patient_records):
         record[0] = idx + 1
 
-    write_reports(patient_records, weekly_report, seed)
+    return write_reports(patient_records, weekly_report, seed, filepath)
 
 
 if __name__ == "__main__":
@@ -177,6 +182,7 @@ if __name__ == "__main__":
     K9_params = {'distribution': 'lognormal', 'mean': 1.238535974, 'std': 0.6021773292}
     K3_params = {'distribution': 'lognormal', 'mean': 1.59782238, 'std': 0.6741858934}
 
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     generate_csv(
         specialties=specialties,
         weekly_hours=weekly_hours,
@@ -190,6 +196,7 @@ if __name__ == "__main__":
         people_distribution='poisson',
         priority_distribution='normal',
         priority_mean=15,
-        priority_std=5
+        priority_std=5,
+        filepath=project_root
     )
     print("File 'Patient_Record.csv' generato con successo.")

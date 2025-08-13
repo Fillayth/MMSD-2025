@@ -1,1 +1,0 @@
-from .CommonClass import OperationPatient, WeekSchedule

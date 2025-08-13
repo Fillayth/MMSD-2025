@@ -6,9 +6,9 @@ import random
 import sys
 import os
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'CommonClass'))) ## se si crea un file comune in MMSD-2025 che poi orchestra tutte le risorse questo comando non serve 
+# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'CommonClass'))) ## se si crea un file comune in MMSD-2025 che poi orchestra tutte le risorse questo comando non serve 
 
-from CommonClass import Week, Operations
+from CommonClass.CommonClass import Week, PatientListForSpecialties
 
 def BoxPlotUnusedTime(weeks: list, title: str):
     data = []
@@ -76,7 +76,7 @@ def PrintDailyGraph(operation : list[Week], title : str):
     # mostro il risultato 
     fig.show()
 
-def MakeGraph(data : Operations ):
+def MakeGraph(data : PatientListForSpecialties ):
     for op in data:
         PrintDailyGraph(data[op], op)
         # Rimuovo l'ultima settimana per il box plot perchè l'ultima settimana non è completa
@@ -87,5 +87,5 @@ if __name__ == "__main__":
     file_path = "weekly_schedule.json"
     with open(file_path, mode='r', newline='', encoding='utf-8') as f:
         data = json.load(f)
-    ops = Operations.from_dict(data)
+    ops = PatientListForSpecialties.from_dict(data)
     MakeGraph(ops)
