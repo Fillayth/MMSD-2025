@@ -1,8 +1,9 @@
 import pyomo.environ as pyo
 import random
 
+
 def optimize_weekly_batch(patients, ws_count, weekly_limit, current_week_end):
-    """Optimize assignment of patients to workstations for a single week."""
+    """Optimize assignment of patients to workstations for a single week with balanced usage."""
     if not patients:
         return []
 
@@ -13,15 +14,19 @@ def optimize_weekly_batch(patients, ws_count, weekly_limit, current_week_end):
     # Decision variables: x[p, w] = 1 if patient p is assigned to workstation w
     model.x = pyo.Var(model.P, model.W, domain=pyo.Binary)
 
+    # Helper vars: workload per workstation
+    model.ws_load = pyo.Var(model.W, domain=pyo.NonNegativeReals)
+
     # Priority: overdue patients get higher weight
     priorities = [
         patients[p]["eot"] * (1 + max(0, current_week_end - patients[p]["day"] - patients[p]["mtb"]))
         for p in model.P
     ]
 
-    # Objective: maximize total priority
+    # Objective: maximize total priority + small balancing term
     model.obj = pyo.Objective(
-        expr=sum(model.x[p, w] * priorities[p] for p in model.P for w in model.W),
+        expr=sum(model.x[p, w] * priorities[p] for p in model.P for w in model.W)
+             - 0.01 * sum((model.ws_load[w] - weekly_limit/ws_count)**2 for w in model.W),
         sense=pyo.maximize
     )
 
@@ -30,14 +35,19 @@ def optimize_weekly_batch(patients, ws_count, weekly_limit, current_week_end):
     for p in model.P:
         model.patient_once.add(sum(model.x[p, w] for w in model.W) <= 1)
 
-    # Constraint: workstation weekly limit
+    # Constraint: workstation load and weekly limit
     model.ws_limit = pyo.ConstraintList()
     for w in model.W:
-        model.ws_limit.add(sum(model.x[p, w] * patients[p]["eot"] for p in model.P) <= weekly_limit)
+        model.ws_limit.add(model.ws_load[w] == sum(model.x[p, w] * patients[p]["eot"] for p in model.P))
+        model.ws_limit.add(model.ws_load[w] <= weekly_limit)
 
     # Solve
     solver = pyo.SolverFactory('cplex')
-    solver.solve(model, tee=False)
+    results = solver.solve(model, tee=False)
+
+    if (results.solver.status != pyo.SolverStatus.ok) or (results.solver.termination_condition != pyo.TerminationCondition.optimal):
+        print("⚠️ Warning: solver failed, skipping assignment this week.")
+        return []
 
     # Extract assignment
     batch = []
@@ -54,8 +64,15 @@ def optimize_weekly_batch(patients, ws_count, weekly_limit, current_week_end):
                 })
     return batch
 
-def group_weekly_with_mtb_logic_optimized(ops_dict, weekly_limit=2400, week_length_days=5, workstations_per_type=None, seed=None):
-    """Groups patients into weekly batches using Pyomo/CPLEX optimization."""
+
+def group_weekly_with_mtb_logic_optimized(
+    ops_dict,
+    weekly_limit=2400,
+    week_length_days=5,
+    workstations_per_type=None,
+    seed=None
+):
+    """Groups patients into weekly batches using Pyomo/CPLEX optimization with workstation balancing."""
     if seed is not None:
         random.seed(seed)
 
@@ -67,7 +84,9 @@ def group_weekly_with_mtb_logic_optimized(ops_dict, weekly_limit=2400, week_leng
         week_number = 0
         grouped_schedule[op_type] = []
 
-        while remaining:
+        max_weeks = len(patients) * 2  # hard cap safeguard
+
+        while remaining and week_number < max_weeks:
             current_week_start = week_number * week_length_days
             current_week_end = current_week_start + week_length_days - 1
             next_week_end = current_week_end + week_length_days
@@ -77,6 +96,10 @@ def group_weekly_with_mtb_logic_optimized(ops_dict, weekly_limit=2400, week_leng
 
             # Skip week if no patients available yet
             if not available_patients:
+                grouped_schedule[op_type].append({
+                    "week": week_number + 1,
+                    "patients": []
+                })
                 week_number += 1
                 continue
 
@@ -90,6 +113,22 @@ def group_weekly_with_mtb_logic_optimized(ops_dict, weekly_limit=2400, week_leng
             # Optimize assignment
             batch = optimize_weekly_batch(ordered_patients, ws_count, weekly_limit, current_week_end)
 
+            if not batch:
+                # 🔑 No assignments this week → advance week
+                grouped_schedule[op_type].append({
+                    "week": week_number + 1,
+                    "patients": []
+                })
+
+                # Safety: if ALL patients are available but still no assignment → stop
+                if all(p["day"] <= current_week_end for p in remaining):
+                    raise RuntimeError(
+                        f"Week {week_number+1}: Solver assigned no patients even though all are available."
+                    )
+
+                week_number += 1
+                continue
+
             # Remove assigned patients from remaining
             assigned_ids = {p["id"] for p in batch}
             remaining = [p for p in remaining if p["id"] not in assigned_ids]
@@ -100,5 +139,10 @@ def group_weekly_with_mtb_logic_optimized(ops_dict, weekly_limit=2400, week_leng
             })
 
             week_number += 1
+
+        if week_number >= max_weeks and remaining:
+            raise RuntimeError(
+                f"Aborted: hit week cap ({max_weeks}) for {op_type} but still have {len(remaining)} patients unscheduled."
+            )
 
     return grouped_schedule
