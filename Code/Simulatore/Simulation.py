@@ -1,17 +1,21 @@
 import csv
 import json
-
-from typing import List 
-
 import sys
 import os
+
+from typing import List 
+from Code.Simulatore.Optimizer import group_weekly_with_mtb_logic_optimized
+
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'CommonClass'))) ## se si crea un file comune in MMSD-2025 che poi orchestra tutte le risorse questo comando non serve 
 
 from CommonClass.CommonClass import Patient, Week, PatientListForSpecialties
 
+
+# Reads the CSV file and organizes patient data by operation type
 def read_and_split_by_operation_with_metadata(csv_file):
     with open(csv_file, mode='r', newline='', encoding='utf-8') as f:
-        content = f.readlines()[2:] 
+        content = f.readlines()[2:]  # Skip the first two header lines
         reader = csv.reader(content)
         lines = list(reader)
 
@@ -72,12 +76,29 @@ def export_json_schedule(data, filepath, filename="weekly_schedule.json") -> str
     print(f"JSON exported to {file}")
     return file
 
+# Main program execution
 if __name__ == "__main__":
     schedule = PatientListForSpecialties()
-    ops = read_and_split_by_operation_with_metadata("lista_attesa_simulata.csv")
+    spc = read_and_split_by_operation_with_metadata("lista_attesa_simulata.csv")
     # si prendono in considerazione tutti gli utenti per una data Operazione
-    for opName in schedule:
-        schedule[opName] = group_daily_with_mtb_logic(ops[opName])
+    for spcName in schedule:
+        schedule[spcName] = group_daily_with_mtb_logic(spc[spcName])
+
+
+    workstations_config = {
+        "Operazione A": 2,  # Example: 2 workstations for Operazione A
+        "Operazione B": 3,
+        "Operazione C": 1
+    }
+
+    # Call the optimized scheduling function
+    schedule = group_weekly_with_mtb_logic_optimized(
+        spc,
+        weekly_limit=2400,
+        week_length_days=5,
+        workstations_per_type=workstations_config,
+        seed=2915453889
+    )
 
     #ck = len(ops["Operazione A"]) ==sum(len(b.patients) for a in schedule["Operazione A"] for b in a.dailySchedule)
     # dataForJson = {
@@ -86,5 +107,8 @@ if __name__ == "__main__":
     # export_json_schedule(dataForJson)
     export_json_schedule(schedule.to_dict(), os.getcwd())
     #export_json_schedule(schedule.to_dict())
+
+
+    
 
 

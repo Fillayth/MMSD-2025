@@ -2,13 +2,22 @@ import json
 from Grafici.Graph import MakeGraph
 from RecordGeneration.PatientRecordGenerator import generate_csv
 from Simulatore.Simulation import PatientListForSpecialties, read_and_split_by_operation_with_metadata, group_daily_with_mtb_logic, export_json_schedule
+from Code.Simulatore.Optimizer import group_weekly_with_mtb_logic_optimized
 import os
 
 def main():
     """
     Main function to generate patient records and weekly reports.
     """
-    specialties = ["Specialty A"]  # Insert necessary specialties here
+    #specialties = ["Specialty A"]  # Insert necessary specialties here
+    workstations_config = {
+    "Specialty A": 2
+    # "Specialty B": 3,
+    # "Specialty C": 1
+    }
+
+    specialties = list(workstations_config.keys())
+
     weekly_hours = 80  # Total available hours for operations per week
     K2_params = {'distribution': 'lognormal', 'mean': 1.980694593, 'std': 0.5021391517}
     K7_params = {'distribution': 'gamma', 'shape': 3.25036037, 'scale': 4.22461821}
@@ -46,13 +55,23 @@ def main():
     # selezionare i pazienti della prima (o prime) settimana ed eseguire la schedulazione 
     # ciclare per le segueti settimane le schedulazioni
     
-    schedule = PatientListForSpecialties()
-    for specialty_type in schedule:
-        schedule[specialty_type] = group_daily_with_mtb_logic(all_patient_records[specialty_type])
+    # schedule = PatientListForSpecialties()
+    # for specialty_type in schedule:
+    #     schedule[specialty_type] = group_daily_with_mtb_logic(all_patient_records[specialty_type])
     
-    scheduleJson_path = export_json_schedule(schedule, project_root)
     
     # creRE operazioni di ottimizzazione dei tempi delle schedulazioni
+
+    schedule = group_weekly_with_mtb_logic_optimized(
+        all_patient_records,
+        weekly_limit=2400,
+        week_length_days=5,
+        workstations_per_type=workstations_config,
+        seed=2915453889
+    )
+
+    scheduleJson_path = export_json_schedule(schedule, project_root)
+
 
     # caricare alla fine delle schedulazioni tutti i risultati e gestire in qualche modo la visualizzazione 
 
