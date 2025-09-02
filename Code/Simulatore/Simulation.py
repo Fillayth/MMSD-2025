@@ -2,18 +2,23 @@ import csv
 import json
 import sys
 import os
+import random
+
 
 from typing import List 
-from Code.Simulatore.Optimizer import group_weekly_with_mtb_logic_optimized
+#from Optimizer import group_weekly_with_mtb_logic_optimized
+from settings import Settings
+from Simulatore.Optimizer import group_weekly_with_mtb_logic_optimized, optimize_daily_batch as opt_daily
 
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'CommonClass'))) ## se si crea un file comune in MMSD-2025 che poi orchestra tutte le risorse questo comando non serve 
+#sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'CommonClass'))) ## se si crea un file comune in MMSD-2025 che poi orchestra tutte le risorse questo comando non serve 
 
-from CommonClass.CommonClass import Patient, Week, PatientListForSpecialties
+from CommonClass.CommonClass import Patient, Week, PatientListForSpecialties, Specialty
+#from CommonClass.CommonClass import Patient, Week, PatientListForSpecialties
 
 
 # Reads the CSV file and organizes patient data by operation type
-def read_and_split_by_operation_with_metadata(csv_file):
+def read_and_split_by_operation_with_metadata(csv_file) -> PatientListForSpecialties:
     with open(csv_file, mode='r', newline='', encoding='utf-8') as f:
         content = f.readlines()[2:]  # Skip the first two header lines
         reader = csv.reader(content)
@@ -33,7 +38,7 @@ def read_and_split_by_operation_with_metadata(csv_file):
     return spc
 
 def group_daily_with_mtb_logic(ops_dict) ->List[Week]:
-    day_for_week = 5 #valore statico, lo uso per impostare le settimane 
+    day_for_week = Settings.week_length_days #valore statico, lo uso per impostare le settimane 
     weekNum = 0     #contatore della settimana in corso     
     #non è il contatore del giorno perchè si scatta di settimana in settimana ma lo uso come indicatore per valutare le urgenze  
     today_number = lambda wN: day_for_week * wN #weekNum      
@@ -67,6 +72,54 @@ def group_daily_with_mtb_logic(ops_dict) ->List[Week]:
 
     return weeks
 
+def group_daily_with_mtb_logic_optimized(
+        ops_dict: List[Patient],
+        week_length_days=Settings.week_length_days, 
+        ) -> PatientListForSpecialties :
+    
+    result = PatientListForSpecialties()
+    for op_type, patients in ops_dict.items():
+        remaining = patients.copy()
+        current_week = Week(0, op_type)
+        result[op_type] = []
+
+        while remaining:
+            current_week_start = current_week.weekNum * week_length_days
+            current_week_end = current_week_start + week_length_days - 1
+            next_week_end = current_week_end + week_length_days
+
+            # Only consider patients that have arrived
+            available_patients = [p for p in remaining if p.day <= current_week_start]
+
+            # Skip week if no patients available yet
+            if not available_patients:
+                result[op_type].append(current_week)
+                current_week = Week(current_week.weekNum + 1, op_type) 
+                continue
+
+            # Split into overdue now, overdue next, normal
+            overdue_now = [p for p in available_patients if current_week_end - p.day >= p.mtb]
+            overdue_next = [p for p in available_patients if next_week_end - p.day >= p.mtb and p not in overdue_now]
+            normal = [p for p in available_patients if p not in overdue_now and p not in overdue_next]
+
+            ordered_patients = overdue_now + overdue_next + normal
+
+            # Optimize assignment
+            batch = opt_daily(ordered_patients, current_week)
+
+            if batch:
+                current_week = batch[-1]
+            
+            for week in batch[:-1]:
+                result[op_type].append(week)
+
+
+            # Remove assigned patients from remaining
+            assigned_ids = {p.id for week in batch for p in week.patients()}
+            remaining = [p for p in remaining if p.id not in assigned_ids]
+
+
+    
 def export_json_schedule(data, filepath, filename="weekly_schedule.json") -> str:
     if not os.path.exists(filepath):
         os.makedirs(filepath)
@@ -94,9 +147,9 @@ if __name__ == "__main__":
     # Call the optimized scheduling function
     schedule = group_weekly_with_mtb_logic_optimized(
         spc,
-        weekly_limit=2400,
+        weekly_limit=Settings.weekly_operation_limit,
         week_length_days=5,
-        workstations_per_type=workstations_config,
+        workstations_per_type=Settings.workstations_config,
         seed=2915453889
     )
 
@@ -109,6 +162,6 @@ if __name__ == "__main__":
     #export_json_schedule(schedule.to_dict())
 
 
-    
+
 
 
