@@ -3,19 +3,15 @@ import json
 import sys
 import os
 import random
-
-
 from typing import List 
-#from Optimizer import group_weekly_with_mtb_logic_optimized
+
+if os.path.basename(__file__) != "main.py":
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'Code')))
+from CommonClass.Patient import Patient
+from CommonClass.PatientListForSpecialties import PatientListForSpecialties
+from CommonClass.Week import Week
 from settings import Settings
 from Simulatore.Optimizer import group_weekly_with_mtb_logic_optimized, optimize_daily_batch as opt_daily
-
-
-#sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'CommonClass'))) ## se si crea un file comune in MMSD-2025 che poi orchestra tutte le risorse questo comando non serve 
-
-from CommonClass.CommonClass import Patient, Week, PatientListForSpecialties, Specialty
-#from CommonClass.CommonClass import Patient, Week, PatientListForSpecialties
-
 
 # Reads the CSV file and organizes patient data by operation type
 def read_and_split_by_operation_with_metadata(csv_file) -> PatientListForSpecialties:
@@ -37,38 +33,49 @@ def read_and_split_by_operation_with_metadata(csv_file) -> PatientListForSpecial
             ))
     return spc
 
-def group_daily_with_mtb_logic(ops_dict) ->List[Week]:
+def group_daily_with_mtb_logic(ops_dict: PatientListForSpecialties) ->List[Week]:
     day_for_week = Settings.week_length_days #valore statico, lo uso per impostare le settimane 
-    weekNum = 0     #contatore della settimana in corso     
     #non è il contatore del giorno perchè si scatta di settimana in settimana ma lo uso come indicatore per valutare le urgenze  
     today_number = lambda wN: day_for_week * wN #weekNum      
     # le settimane da definire
-    weeks: List[Week] = []
+    weeks: PatientListForSpecialties = PatientListForSpecialties()
     # la settimana corrente 
-    week = Week(weekNum)
-    patients = ops_dict.copy()
-    while patients:
-        #ordino i pazienti in base all'urgenza 
-        ordered = sorted(patients, key= lambda x: x.day + x.mtb - today_number(weekNum), reverse=False ) 
-        # serve far emergere i patient con eot piu alti nella cerchia dei piu urgenti per ottimizzare gli spazi 
-        firstSet = [p for p in ordered if p.day + p.mtb <= today_number(weekNum + 2)] #today_number + ho impostato due settimane come cerchia
-        secondSet = [p for p in ordered if p.day + p.mtb > today_number(weekNum + 2)] #prendo il resto 
-        ordered = sorted(firstSet, key= lambda x: x.eot, reverse=True) + secondSet
-        # ciclo i pazienti rimasti fino a riempire la settimana in coso 
-        for p in ordered:
-            # la funzione restituisce true se il paziente è stato inserito 
-            if week.insertPatient(p):
-                #rimuovo i pazieniti dalla lista provvisoria 
-                patients.remove(p)
-        ## se il ciclo finisce e i pazienti sono ancora presenti vuol dire che la settimana si è riempita
-        ## e ne serve una nuova 
-        if len(patients) > 0 :
-            weeks.append(week)
-            weekNum +=1
-            week = Week(weekNum)
-            #today_number += 5
-    #alla fine del cilo sui pazienti totali, inserisco anche l'ultima settimana nella lista
-    weeks.append(week)
+    for op_type, patients in ops_dict.items():
+        remaining = patients.copy()
+        week = Week(0, op_type)
+        weeks[op_type] = []
+        workStation = 0
+        while remaining:
+            #ordino i pazienti in base all'urgenza 
+            ordered = sorted(remaining, key= lambda x: x.day + x.mtb - today_number(week.weekNum), reverse=False ) 
+            # serve far emergere i patient con eot piu alti nella cerchia dei piu urgenti per ottimizzare gli spazi 
+            firstSet = [p for p in ordered if p.day + p.mtb <= today_number(week.weekNum + 2)] #today_number + ho impostato due settimane come cerchia
+            secondSet = [p for p in ordered if p.day + p.mtb > today_number(week.weekNum + 2)] #prendo il resto 
+            ordered = sorted(firstSet, key= lambda x: x.eot, reverse=True) + secondSet
+            # ciclo i pazienti rimasti fino a riempire la settimana in coso 
+            
+            for p in ordered:
+                # la funzione restituisce true se il paziente è stato inserito 
+                p.workstation = workStation
+                if week.insertPatient(p):
+                    #rimuovo i pazieniti dalla lista provvisoria 
+                    remaining.remove(p)
+                elif workStation < Settings.workstations_config[op_type]:
+                    workStation =+ 1
+                    p.workstation = workStation
+                    week.insertPatient(p)
+                else:
+                    break
+            ## se il ciclo finisce e i pazienti sono ancora presenti vuol dire che la settimana si è riempita
+            ## e ne serve una nuova 
+            if len(remaining) > 0 :
+                weeks[op_type].append(week)
+                weekNum = week.weekNum+1
+                workStation = 0
+                week = Week(weekNum, op_type)
+                #today_number += 5
+        #alla fine del cilo sui pazienti totali, inserisco anche l'ultima settimana nella lista
+        weeks[op_type].append(week)
 
     return weeks
 
@@ -94,7 +101,8 @@ def group_daily_with_mtb_logic_optimized(
             # Skip week if no patients available yet
             if not available_patients:
                 result[op_type].append(current_week)
-                current_week = Week(current_week.weekNum + 1, op_type) 
+                numWeek = current_week.weekNum + 1
+                current_week = Week(numWeek, op_type) 
                 continue
 
             # Split into overdue now, overdue next, normal
@@ -117,6 +125,10 @@ def group_daily_with_mtb_logic_optimized(
             # Remove assigned patients from remaining
             assigned_ids = {p.id for week in batch for p in week.patients()}
             remaining = [p for p in remaining if p.id not in assigned_ids]
+            print(f"Remaining count: {len(remaining)}")
+            print(f"Assigned this round: {len(assigned_ids)}")
+            print(f"Current week: {current_week.weekNum}")
+            print(f"Batch size: {len(batch)}")
 
 
     
@@ -137,13 +149,6 @@ if __name__ == "__main__":
     for spcName in schedule:
         schedule[spcName] = group_daily_with_mtb_logic(spc[spcName])
 
-
-    workstations_config = {
-        "Operazione A": 2,  # Example: 2 workstations for Operazione A
-        "Operazione B": 3,
-        "Operazione C": 1
-    }
-
     # Call the optimized scheduling function
     schedule = group_weekly_with_mtb_logic_optimized(
         spc,
@@ -153,13 +158,8 @@ if __name__ == "__main__":
         seed=2915453889
     )
 
-    #ck = len(ops["Operazione A"]) ==sum(len(b.patients) for a in schedule["Operazione A"] for b in a.dailySchedule)
-    # dataForJson = {
-    #     key: [w.to_dict() for w in weeks] for key, weeks in schedule.items()
-    # }
-    # export_json_schedule(dataForJson)
+
     export_json_schedule(schedule.to_dict(), os.getcwd())
-    #export_json_schedule(schedule.to_dict())
 
 
 

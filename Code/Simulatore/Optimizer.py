@@ -3,8 +3,9 @@ import random
 
 from typing import List 
 #sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'CommonClass'))) ## se si crea un file comune in MMSD-2025 che poi orchestra tutte le risorse questo comando non serve 
+from CommonClass.Patient import Patient
+from CommonClass.Week import Week
 from settings import Settings
-from CommonClass.CommonClass import Patient, Week, Specialty
 
 def optimize_weekly_batch(patients, ws_count, weekly_limit, current_week_end):
     """Optimize assignment of patients to workstations for a single week."""
@@ -65,7 +66,7 @@ def optimize_daily_batch(patients: List[Patient], current_week: Week) -> list[We
     popolando un oggetto Week tramite insertPatient.
     """
     num_days = Settings.week_length_days
-    ws_count = Settings.workstations_config[current_week.specialty.value]
+    ws_count = Settings.workstations_config[current_week.specialty]
     daily_limit = Settings.daily_operation_limit
 
     model = pyo.ConcreteModel()
@@ -100,9 +101,9 @@ def optimize_daily_batch(patients: List[Patient], current_week: Week) -> list[We
         expr=sum(model.x[p, w, d] * priorities[p] for p in model.P for w in model.W for d in model.D),
         sense=pyo.maximize
     )
-
+    
     # Risolvi
-    Settings.solver.solve(model, tee=False)
+    Settings.solver.solve(model, tee=Settings.solver_tee)
 
     # Popola la struttura Week
     weekList = [] 
@@ -118,11 +119,14 @@ def optimize_daily_batch(patients: List[Patient], current_week: Week) -> list[We
                     # La Week inserisce nei giorni e nelle sale operatorie tramite insertPatient
                     if (not current_week.insertPatient(patient)):
                         weekList.append(current_week)
-                        current_week = Week(current_week.weekNum + 1, current_week.specialty)
+                        numWeek = current_week.weekNum + 1
+                        specialty = current_week.specialty
+                        current_week = Week(numWeek, specialty)
                         # if(not current_week.insertPatient(patient)):
                         #     print("Errore: impossibile inserire il paziente anche in una nuova settimana")
                         #     raise Exception("Errore: impossibile inserire il paziente anche in una nuova settimana")
                         current_week.insertPatient(patient)
+    weekList.append(current_week)
     return weekList
 
 def group_weekly_with_mtb_logic_optimized(ops_dict, weekly_limit=Settings.weekly_operation_limit, week_length_days=Settings.week_length_days, workstations_per_type=None, seed=None):
