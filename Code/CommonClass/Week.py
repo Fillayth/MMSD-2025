@@ -64,7 +64,7 @@ class Week:
     #region: Funzioni Grafiche
     def setTrace (self, figure: Figure, color_map) -> Figure:
         for day in self.dailySchedule:
-            figure = day.setTrace(figure, color_map, f"Week:{self.weekNum}")
+            figure = day.setTrace(figure, color_map, f"W:{self.weekNum}")
         return figure
     #endregion
     #region: Funzioni Json

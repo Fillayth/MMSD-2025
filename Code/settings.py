@@ -6,7 +6,7 @@ class Settings:
     #region Global Settings
     seed = 197558074  # Random seed for reproducibility
     #seed = None  # Random seed for reproducibility
-    # Number of workstations per specialty
+    # Specialities and number of workstations per specialty
     workstations_config = {
         "Specialty A": 2
         # "Specialty B": 3,

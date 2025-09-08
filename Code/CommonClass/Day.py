@@ -57,8 +57,9 @@ class Day:
     #region: Funzioni Grafiche 
     def setTrace(self, figure: Figure, color_map, text: str) -> Figure:
         mins = round(sum(p.eot for p in self.patients()), 2)
-        for p in self.patients():
-            figure = p.setTrace(figure, color_map, text + f"|Day:{self.day.name}", mins)
+        for r in self.operatingRooms:
+            for p in r.daily_schedules:
+                figure = p.setTrace(figure, color_map, text + f"|OR:{r.id}|D:{self.day.name}", mins)
         return figure
 
     #endregion

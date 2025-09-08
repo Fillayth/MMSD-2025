@@ -98,7 +98,7 @@ def PrintLineGraph(operation : list[Week], title : str):
     weeks = operation[:-1]
     # inizializzo il grafico
     fig = go.Figure()
-    days = [f"W:{week.weekNum}!Day:{day_obj.day.name}" for week in weeks for day_obj in week.dailySchedule ]
+    days = [f"W:{week.weekNum}|Day:{day_obj.day.name}" for week in weeks for day_obj in week.dailySchedule ]
     room_ids = range(Settings.workstations_config[weeks[0].specialty])
     room_free_time = {room_id:[] for room_id in room_ids}
     room_patient = {room_id:[] for room_id in room_ids}
