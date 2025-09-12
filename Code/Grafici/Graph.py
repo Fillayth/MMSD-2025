@@ -68,6 +68,7 @@ def PrintDailyGraph(operation : list[Week], title : str):
     weeks = operation
     # inizializzo il grafico
     fig = go.Figure()
+    buttons = []
     # imposto colori randomici per differenziare i pazienti
     #color_map = {p.id: f"hsl({random.randint(0, 360)}, 70%, 50%)" for week in weeks for p in week.patients()}
     all_patients = [p for week in weeks for p in week.patients()]
@@ -79,17 +80,62 @@ def PrintDailyGraph(operation : list[Week], title : str):
         for i, p in enumerate(all_patients)
     }
     # la funzione si propaghera fino ai patients a seconda della struttura che abbiamo definito per gestire i pazieni e cosi gestire le colonne del grafo
+    i = 0
     for week in weeks:
-        fig = week.setTrace(fig, color_map)
+        visible = [False] * sum(len(week.patients()) for week in weeks)
+        #fig = week.setTrace(fig, color_map)
+        text = f"W:{week.weekNum}" 
+        for day in week.dailySchedule:
+            #mins = round(day.getTime(), 2)
+            for r in day.operatingRooms:
+                mins = round(r.getTime(), 2)
+                for p in r.daily_schedules:
+                    fig.add_trace(go.Bar(
+                        x=[text + f"|OR:{r.id}|D:{day.day.name}|ToTMin:{mins}"],
+                        y=[p.eot],
+                        name=f"Patient {p.id}",
+                        hoverinfo="text",
+                        text=[f"Patient {p.id}: {int(p.eot)}m {int((p.eot % 1) * 60)}s"],
+                        marker=dict(color=color_map[p.id]),
+                        cliponaxis=True,
+                        textposition='inside',
+                        visible=(week.weekNum == 0)
+                    ))
+                    visible[i] = True
+                    i += 1
+        # for i in range(len(week.patients())):
+        #     visible[i + week.weekNum * len(week.patients())] = True
+        buttons.append(dict(
+            label=f"Settimana {week.weekNum}",
+            method="update",
+            args=[{"visible": visible},
+                  {"title": title}]
+                #   {"title": f"{title} - Settimana {week.weekNum}"}]
+        ))
     # adatto il grafico alla nuova struttura con i dati 
+    # fig.update_layout(
+    #     barmode="stack",  
+    #     title=title,
+    #     showlegend=False,
+    #     yaxis_title="Minuti Totali",
+    #     xaxis_title="Giorni"
+    # )
+    # mostro il risultato 
     fig.update_layout(
+        updatemenus=[dict(
+            active=0,
+            buttons=buttons,
+            x=1.1,
+            y=1.15,
+            xanchor='right',
+            yanchor='top'
+        )],
         barmode="stack",  
         title=title,
         showlegend=False,
         yaxis_title="Minuti Totali",
-        xaxis_title="Giorni"
+        xaxis_title="Giorni",
     )
-    # mostro il risultato 
     fig.show()
 
 def PrintLineGraph(operation : list[Week], title : str): 
@@ -167,15 +213,15 @@ def PrintLineGraph(operation : list[Week], title : str):
 def MakeGraphs(data : PatientListForSpecialties ):
     for op in data:
         #Grafico giornaliero per vedere la distribuzione dei pazienti
-        PrintDailyGraph(data[op], op)
+        PrintDailyGraph(data[op], f"Distribuzione dei pazienti per {op}")
         #Grafico lineare per vedere l'andamento del tempo occupato
-        PrintLineGraph(data[op], f"Andamento tempo occupato per {op}")
+        #PrintLineGraph(data[op], f"Andamento tempo occupato per {op}")
 
         
         # Rimuovo l'ultima settimana per il box plot perchè l'ultima settimana non è completa
         weeks_without_last = data[op][:-1] if len(data[op]) > 1 else data[op]
         # Box plot per vedere il tempo inutilizzato
-        BoxPlotUnusedTime(weeks_without_last, f"Tempo inutilizzato per {op}")
+        #BoxPlotUnusedTime(weeks_without_last, f"Tempi medi non utilizzati per {op}")
 
 
 if __name__ == "__main__":
