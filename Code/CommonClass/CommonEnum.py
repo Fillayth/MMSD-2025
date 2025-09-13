@@ -13,6 +13,8 @@ class Days(Enum):
     Mer = 2
     Gio = 3
     Ven = 4
+    Sab = 5
+    Dom = 6
 
 #lo sto rimuovendo per ora
 class Specialty(Enum):

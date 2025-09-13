@@ -1,8 +1,6 @@
-# import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import json
-import random
 
 import sys
 import os
@@ -63,30 +61,24 @@ def BoxPlotUnusedTime(weeks: list, title: str):
 
 '''
 
-def PrintDailyGraph(operation : list[Week], title : str): 
+def PrintDailyBoxGraph(operation : list[Week], title : str): 
     # estraggo i dati di una operazione dal formato json 
     weeks = operation
     # inizializzo il grafico
     fig = go.Figure()
     buttons = []
-    # imposto colori randomici per differenziare i pazienti
-    #color_map = {p.id: f"hsl({random.randint(0, 360)}, 70%, 50%)" for week in weeks for p in week.patients()}
     all_patients = [p for week in weeks for p in week.patients()]
     num_patients = len(all_patients)
-
     # Gradazione di colori distribuiti uniformemente
-    color_map = {
-        p.id: f"hsl({int(i * 360 / num_patients)}, 70%, 50%)"
-        for i, p in enumerate(all_patients)
+    color_map_progressive = {
+        p.id: f"hsl({int(i * 360 / num_patients)}, 70%, 50%)" #
+        for i, p in enumerate(sorted(all_patients, key=lambda x: x.id))
     }
-    # la funzione si propaghera fino ai patients a seconda della struttura che abbiamo definito per gestire i pazieni e cosi gestire le colonne del grafo
     i = 0
     for week in weeks:
         visible = [False] * sum(len(week.patients()) for week in weeks)
-        #fig = week.setTrace(fig, color_map)
         text = f"W:{week.weekNum}" 
         for day in week.dailySchedule:
-            #mins = round(day.getTime(), 2)
             for r in day.operatingRooms:
                 mins = round(r.getTime(), 2)
                 for p in r.daily_schedules:
@@ -96,15 +88,14 @@ def PrintDailyGraph(operation : list[Week], title : str):
                         name=f"Patient {p.id}",
                         hoverinfo="text",
                         text=[f"Patient {p.id}: {int(p.eot)}m {int((p.eot % 1) * 60)}s"],
-                        marker=dict(color=color_map[p.id]),
+                        hovertemplate=f'D:{p.day}|MTB:{p.mtb}<extra></extra>',
+                        marker=dict(color=color_map_progressive[p.id]),
                         cliponaxis=True,
                         textposition='inside',
-                        visible=(week.weekNum == 0)
+                        visible=(week.weekNum == Settings.start_week_scheduling)
                     ))
                     visible[i] = True
                     i += 1
-        # for i in range(len(week.patients())):
-        #     visible[i + week.weekNum * len(week.patients())] = True
         buttons.append(dict(
             label=f"Settimana {week.weekNum}",
             method="update",
@@ -112,21 +103,29 @@ def PrintDailyGraph(operation : list[Week], title : str):
                   {"title": title}]
                 #   {"title": f"{title} - Settimana {week.weekNum}"}]
         ))
-    # adatto il grafico alla nuova struttura con i dati 
-    # fig.update_layout(
-    #     barmode="stack",  
-    #     title=title,
-    #     showlegend=False,
-    #     yaxis_title="Minuti Totali",
-    #     xaxis_title="Giorni"
-    # )
+    # Aggiungo la linea del limite massimo
+    limite_massimo = Settings.daily_operation_limit
+    xline = len(weeks[0].dailySchedule) * len(weeks[0].dailySchedule[0].operatingRooms)
+    fig.add_shape(
+        type="line",
+        x0=-0.5, x1=xline - 0.5 ,  # Estendo la linea su tutto l'asse X
+        y0=limite_massimo, y1=limite_massimo,
+        line=dict(color="red", width=2, dash="dash"),
+    )
+    fig.add_annotation(
+        x=xline - 1, y=limite_massimo,
+        text=f"{limite_massimo} minuti (limite giornaliero)",
+        showarrow=False,
+        yshift=10,
+        font=dict(color="red")
+    )
     # mostro il risultato 
     fig.update_layout(
         updatemenus=[dict(
             active=0,
             buttons=buttons,
-            x=1.1,
-            y=1.15,
+            x=0.95,
+            y=1.1,
             xanchor='right',
             yanchor='top'
         )],
@@ -138,7 +137,7 @@ def PrintDailyGraph(operation : list[Week], title : str):
     )
     fig.show()
 
-def PrintLineGraph(operation : list[Week], title : str): 
+def PrintTrendLineGraph(operation : list[Week], title : str): 
     # estraggo i dati di una operazione dal formato json 
     # Escludo l'ultima settimana se non è completa
     weeks = operation[:-1]
@@ -149,9 +148,6 @@ def PrintLineGraph(operation : list[Week], title : str):
     room_free_time = {room_id:[] for room_id in room_ids}
     room_patient = {room_id:[] for room_id in room_ids}
     for week in weeks: 
-
-        # Dati per ogni room
-
         for day_obj in week.dailySchedule:
             for room_id in room_ids:
                 room = next((r for r in day_obj.operatingRooms if r.id == room_id), None)
@@ -165,30 +161,26 @@ def PrintLineGraph(operation : list[Week], title : str):
 
                 room_free_time[room_id].append(free_time)
                 room_patient[room_id].append(patient_count)
-
         # Grafico con doppio asse Y
         fig = make_subplots(specs=[[{"secondary_y": True}]])
-
         # Linee: tempo libero per room
         for room_id, times in room_free_time.items():
             fig.add_trace(go.Scatter(
                 x=days,
                 y=times,
-                name=f"Room:{room_id}-Tempo libero",
+                name=f"OR:{room_id}-Tempo libero residuo",
                 mode='lines+markers',
-                hovertemplate='%{y}<extra></extra>'
+                hovertemplate='%{y}<extra>MIN</extra>'
             ), secondary_y=False)
-
         # Barre: pazienti per room
         for room_id, counts in room_patient.items():
             fig.add_trace(go.Bar(
                 x=days,
                 y=counts,
-                name=f"Room:{room_id}-Pazienti",
+                name=f"OR:{room_id}-Numero di Pazienti",
                 opacity=0.6,
-                hovertemplate='%{y}<extra></extra>'
+                hovertemplate='%{y}<extra>P</extra>'
             ), secondary_y=True)
-
     fig.update_layout(
         title=title,
         xaxis_title="Giorno",
@@ -197,7 +189,6 @@ def PrintLineGraph(operation : list[Week], title : str):
         barmode='group',
         #legend=dict(x=0.01, y=0.99)
     )
-
     fig.update_yaxes(
         title_text="Tempo libero (minuti)",
         secondary_y=False
@@ -206,22 +197,24 @@ def PrintLineGraph(operation : list[Week], title : str):
         title_text="Numero pazienti",
         secondary_y=True
     )
-
     fig.show()
+
+
 
 
 def MakeGraphs(data : PatientListForSpecialties ):
     for op in data:
-        #Grafico giornaliero per vedere la distribuzione dei pazienti
-        PrintDailyGraph(data[op], f"Distribuzione dei pazienti per {op}")
-        #Grafico lineare per vedere l'andamento del tempo occupato
-        #PrintLineGraph(data[op], f"Andamento tempo occupato per {op}")
-
+        
         
         # Rimuovo l'ultima settimana per il box plot perchè l'ultima settimana non è completa
-        weeks_without_last = data[op][:-1] if len(data[op]) > 1 else data[op]
-        # Box plot per vedere il tempo inutilizzato
-        #BoxPlotUnusedTime(weeks_without_last, f"Tempi medi non utilizzati per {op}")
+        # weeks_without_last = data[op][:-1] if len(data[op]) > 1 else data[op]
+        # # Box plot per vedere il tempo inutilizzato
+        # BoxPlotUnusedTime(weeks_without_last, f"Tempi medi non utilizzati per {op}")
+        # #Grafico lineare per vedere l'andamento del tempo occupato
+        # PrintTrendLineGraph(data[op], f"Andamento tempo occupato per {op}")
+        #Grafico giornaliero per vedere la distribuzione dei pazienti
+        PrintDailyBoxGraph(data[op], f"Distribuzione dei pazienti per {op}")
+
 
 
 if __name__ == "__main__":

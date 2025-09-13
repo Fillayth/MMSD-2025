@@ -1,6 +1,5 @@
 import sys
 import os
-from plotly.graph_objects import Figure
 from dataclasses import dataclass
 from typing import List
 
@@ -44,15 +43,6 @@ class OperatingRoomShedule:
         else:
             self.daily_schedules = list
             return True
-
-
-    #endregion
-    #region: Funzioni Grafiche 
-    def setTrace(self, figure: Figure, color_map, text: str) -> Figure:
-        mins = round(self.getTime(), 2)
-        for p in self.daily_schedules:
-            figure = p.setTrace(figure, color_map, text + f"|Day:{self.day.name}", mins)
-        return figure
 
     #endregion
     #region: Funzioni Json

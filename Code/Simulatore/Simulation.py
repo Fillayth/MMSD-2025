@@ -42,12 +42,14 @@ def group_daily_with_mtb_logic(ops_dict: PatientListForSpecialties) ->List[Week]
     # la settimana corrente 
     for op_type, patients in ops_dict.items():
         remaining = patients.copy()
-        week = Week(0, op_type)
+        # remaining = patients.sort(key=lambda p: p.day).copy()
+        week = Week(Settings.start_week_scheduling, op_type)
         weeks[op_type] = []
         workStation = 0
         while remaining:
+            for_this_week = [p for p in remaining if p.day <= today_number(week.weekNum)]
             #ordino i pazienti in base all'urgenza 
-            ordered = sorted(remaining, key= lambda x: x.day + x.mtb - today_number(week.weekNum), reverse=False ) 
+            ordered = sorted(for_this_week, key= lambda x: x.day + x.mtb - today_number(week.weekNum), reverse=False ) 
             # serve far emergere i patient con eot piu alti nella cerchia dei piu urgenti per ottimizzare gli spazi 
             firstSet = [p for p in ordered if p.day + p.mtb <= today_number(week.weekNum + 2)] #today_number + ho impostato due settimane come cerchia
             secondSet = [p for p in ordered if p.day + p.mtb > today_number(week.weekNum + 2)] #prendo il resto 
@@ -141,6 +143,19 @@ def export_json_schedule(data, filepath, filename="weekly_schedule.json") -> str
     print(f"JSON exported to {file}")
     return file
 
+def ExportCSVResults(data: PatientListForSpecialties):
+    for op, weeks in data.items():
+        
+        filename = Settings.results_filepath + Settings.results_filename
+        with open(filename, mode='a', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(["Seed","Patient ID", "EOT", "Day", "MTB", "Workstation", "Overdue", "Scheduled Day"])
+            for week in weeks:
+                for p in week.patients():
+                    scheduled_day = week.getNumberOpDayByPatientID(p.id)
+                    writer.writerow([Settings.seed ,p.id, p.eot, p.day, p.mtb, p.workstation, p.overdue, scheduled_day]) 
+                        #uso Settings.seed perchè so che nel main è stato usato, altimenti sarebbe più sicuro usare GetSeed
+        print(f"CSV results exported to {filename}")
 # Main program execution
 if __name__ == "__main__":
     schedule = PatientListForSpecialties()

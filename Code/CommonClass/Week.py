@@ -1,23 +1,17 @@
 import sys
 import os
 
+from dataclasses import dataclass
+from typing import List
+
 if os.path.basename(__file__) != "main.py":
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'Code')))
-
 
 from CommonClass.CommonEnum import Days
 from CommonClass.Day import Day
 from CommonClass.OperatingRoomShedule import OperatingRoomShedule
 from CommonClass.Patient import Patient
 from settings import Settings
-
-
-from plotly.graph_objects import Figure
-
-
-from dataclasses import dataclass
-from typing import List
-
 
 @dataclass
 class Week:
@@ -34,15 +28,15 @@ class Week:
         self.specialty = specialty
         self.dailySchedule = [
             Day(
-                day=day_enum,
+                day=Days(day_enum),
                 operatingRooms=[
                     OperatingRoomShedule(id=orId)
                     for orId in range(Settings.workstations_config[self.specialty])
                 ]
             )
-            for day_enum in Days
+            for day_enum in range(Settings.week_length_days)
+            #for day_enum in Days
         ]
-
     #region: Funzioni 
     def insertPatient(self, patient: Patient) -> bool:
         # #per mantenere il bool sull urgenza 
@@ -59,13 +53,12 @@ class Week:
         for d in self.dailySchedule:
             patients.extend(d.patients())
         return patients
-
-    #endregion
-    #region: Funzioni Grafiche
-    def setTrace (self, figure: Figure, color_map) -> Figure:
-        for day in self.dailySchedule:
-            figure = day.setTrace(figure, color_map, f"W:{self.weekNum}")
-        return figure
+    def getNumberOpDayByPatientID(self, patientID: int) -> int:
+        for d in self.dailySchedule:
+            for p in d.patients():
+                if p.id == patientID:
+                    return self.weekNum * Settings.week_length_days + d.day.value
+        return -1
     #endregion
     #region: Funzioni Json
     def to_dict(self):

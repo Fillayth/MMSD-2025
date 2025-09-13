@@ -5,7 +5,7 @@ from CommonClass.PatientListForSpecialties import PatientListForSpecialties
 from Grafici.Graph import MakeGraphs
 from RecordGeneration.PatientRecordGenerator import generate_csv
 from settings import Settings
-from Simulatore.Simulation import group_daily_with_mtb_logic_optimized, read_and_split_by_operation_with_metadata, group_daily_with_mtb_logic, export_json_schedule
+from Simulatore.Simulation import group_daily_with_mtb_logic_optimized, read_and_split_by_operation_with_metadata, group_daily_with_mtb_logic, export_json_schedule, ExportCSVResults
 from Simulatore.Optimizer import group_weekly_with_mtb_logic_optimized
 
 def main():
@@ -30,7 +30,7 @@ def main():
         specialties=specialties,
         weekly_hours=weekly_hours,
         num_weeks=Settings.weeks_to_fill,
-        seed=Settings.seed, #197558074,
+        seed=Settings.GetSeed(), #197558074,
         # seed=None,
         K2_params=K2_params,
         K7_params=K7_params,
@@ -57,12 +57,13 @@ def main():
     #     workstations_per_type=Settings.workstations_config,
     #     seed=2915453889
     # )
-    try :
-        schedule = group_daily_with_mtb_logic_optimized(all_patient_records) 
-    except Exception as e:
-        print("Errore durante l'ottimizzazione giornaliera:", e)
-        print("Si ripiega sulla versione non ottimizzata.")
-        schedule = group_daily_with_mtb_logic(all_patient_records) #mi sono finite le licenze di cplex
+    # try :
+    #     schedule = group_daily_with_mtb_logic_optimized(all_patient_records) 
+    # except Exception as e:
+    #     print("Errore durante l'ottimizzazione giornaliera:", e)
+    #     print("Si ripiega sulla versione non ottimizzata.")
+    #     schedule = group_daily_with_mtb_logic(all_patient_records) #mi sono finite le licenze di cplex
+    schedule = group_daily_with_mtb_logic(all_patient_records) #mi sono finite le licenze di cplex
     
     scheduleJson_path = export_json_schedule(schedule.to_dict(), project_root)
 
@@ -74,6 +75,7 @@ def main():
         
     #MakeGraphs(PatientListForSpecialties.from_dict(data))
     MakeGraphs(schedule)
+    ExportCSVResults(schedule)
 
 
 

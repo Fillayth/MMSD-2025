@@ -1,6 +1,5 @@
 import sys
 import os
-from plotly.graph_objects import Figure
 from dataclasses import dataclass
 from typing import List
 
@@ -17,12 +16,10 @@ from CommonClass.Patient import Patient
 class Day:
     day: Days
     operatingRooms: List[OperatingRoomShedule]
-    #_minute_of_the_day_: int = Settings.daily_operation_limit
 
     def __init__ (self, day: Days, operatingRooms: List[OperatingRoomShedule] = []):
         self.day = day
         self.operatingRooms = operatingRooms
-        #self._minute_of_the_day_ = Settings.daily_operation_limit
 
     def copy(self):
         copy = Day(self.day, self.operatingRooms)
@@ -52,15 +49,6 @@ class Day:
         for oroom in self.operatingRooms:
             patients.extend(oroom.daily_schedules)
         return patients
-
-    #endregion
-    #region: Funzioni Grafiche 
-    def setTrace(self, figure: Figure, color_map, text: str) -> Figure:
-        mins = round(sum(p.eot for p in self.patients()), 2)
-        for r in self.operatingRooms:
-            for p in r.daily_schedules:
-                figure = p.setTrace(figure, color_map, text + f"|OR:{r.id}|D:{self.day.name}", mins)
-        return figure
 
     #endregion
     #region: Funzioni Json

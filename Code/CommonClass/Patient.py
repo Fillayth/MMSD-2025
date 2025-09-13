@@ -1,5 +1,3 @@
-import plotly.graph_objects as go
-from plotly.graph_objects import Figure
 from dataclasses import dataclass
 
 import sys
@@ -18,20 +16,6 @@ class Patient:
         self.workstation = workstation
         self.overdue = overdue
 
-    #region: Funzioni Grafiche
-    def setTrace (self, figure: Figure, color_map, text: str, mins: float) -> Figure:
-        figure.add_trace(go.Bar(
-            x=[text + f"|ToTMin:{mins}"],
-            y=[self.eot],
-            name=f"Patient {self.id}",
-            hoverinfo="text",
-            text=[f"Patient {self.id}: {int(self.eot)}m {int((self.eot % 1) * 60)}s"],
-            marker=dict(color=color_map[self.id]),
-            cliponaxis=True,
-            textposition='inside'
-        ))
-        return figure
-    #endregion
     #region: Funzioni Json
     def to_dict(self):
         return {
@@ -42,6 +26,7 @@ class Patient:
             "workstation": self.workstation,
             "overdue": self.overdue
         }
+
     @classmethod
     def from_dict(cls, data):
         return cls(data['id'], data['eot'], data['day'], data['mtb'], data['workstation'], data['overdue'])
