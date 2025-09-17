@@ -309,8 +309,9 @@ def MakeGraphs(data : PatientListForSpecialties ):
         # weeks_without_last = data[op][:-1] if len(data[op]) > 1 else data[op]
         # # Box plot per vedere il tempo inutilizzato
         # BoxPlotUnusedTime(weeks_without_last, f"Tempi medi non utilizzati per {op}")
+        
         # #Grafico lineare per vedere l'andamento del tempo occupato
-        # PrintTrendLineGraph(data[op], f"Andamento tempo occupato per {op}")
+        PrintTrendLineGraph(data[op], f"Andamento tempo occupato per {op}")
         #Grafico giornaliero per vedere la distribuzione dei pazienti
         PrintDailyBoxGraph(data[op], f"Distribuzione dei pazienti per {op}")
 
