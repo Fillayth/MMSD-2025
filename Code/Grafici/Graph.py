@@ -1,5 +1,9 @@
+from collections import defaultdict
 import plotly.graph_objects as go
+import plotly.express as px
+import pandas as pd
 from plotly.subplots import make_subplots
+
 import json
 
 import sys
@@ -11,7 +15,6 @@ if os.path.basename(__file__) != "main.py":
 
 from CommonClass.PatientListForSpecialties import PatientListForSpecialties
 from CommonClass.Week import Week
-from CommonClass.OperatingRoomShedule import OperatingRoomShedule
 from settings import Settings
 
 
@@ -60,6 +63,31 @@ def BoxPlotUnusedTime(weeks: list, title: str):
 # print("Max:", max_val)
 
 '''
+
+def PrintWaitingTimeBoxPlotGraph(weeks: list, title: str):
+    data = []
+    #organizzo i dati per estrarre i tempi di attesa
+    df = pd.DataFrame([{
+        "ID": p.id, "Data inserimento": p.day, "MTB": p.mtb, "Data operazione": w.getNumberOpDayByPatientID(p.id)
+        } for w in weeks for p in w.patients()])
+    df['Tempo_attesa'] = df['Data operazione'] - df['Data inserimento']
+    #df['Tempo_attesa'] = df['Tempo_attesa'].dt.days
+    for w in weeks:
+        # Calcola il tempo inutilizzato per ogni giorno della settimana
+        waiting_times = df[df['Data operazione'].between((w.weekNum - 1) * Settings.week_length_days + 1, w.weekNum * Settings.week_length_days)]['Tempo_attesa']
+        data.append(go.Box(
+            y=waiting_times,
+            name=f"Sett {w.weekNum}",
+            boxmean='sd',
+            marker_color='indianred'
+        ))
+    fig = go.Figure(data)
+    fig.update_layout(
+        title=title,
+        yaxis_title="Tempo di attesa (giorni)",
+        xaxis_title="Settimane"
+    )
+    fig.show()
 
 def PrintDailyBoxGraph(operation : list[Week], title : str): 
     # estraggo i dati di una operazione dal formato json 
@@ -199,8 +227,79 @@ def PrintTrendLineGraph(operation : list[Week], title : str):
     )
     fig.show()
 
-
-
+def PrintWaitingListLineGraph(weeks : list[Week], title : str): 
+    # Escludo l'ultima settimana se non è completa
+    #weeks = operation[:-1]
+    all_patients = [p for week in weeks for p in week.patients()]
+    new_patient_list = defaultdict(list)
+    resolved_list = defaultdict(list)
+    for p in all_patients:
+        #estraggo la lista di attesa
+        new_patient_list[p.day].append(p.id)
+        #estraggo la lista dei risolti dalle settimane
+        for week in weeks:
+            day = week.getNumberOpDayByPatientID(p.id)
+            if day != -1:
+                resolved_list[day].append(p.id)
+                break
+    # ordino le liste per giorno
+    new_patient_list = dict(sorted(new_patient_list.items()))
+    resolved_list = dict(sorted(resolved_list.items()))
+    #eseguo i conti dei pazienti nelle liste
+    new_patient_count = {day: len(ids) for day, ids in new_patient_list.items()}
+    resolved_count = {day: len(ids) for day, ids in resolved_list.items()}
+    # imposto la linea per la differenze tra i pazienti in attesa e quelli risolti
+    waiting_count = {}
+    total_waiting = 0   
+    max_day = max(max(new_patient_count.keys(), default=0), max(resolved_count.keys(), default=0))
+    for day in range(1, max_day + 1):
+        total_waiting += new_patient_count.get(day, 0)
+        total_waiting -= resolved_count.get(day, 0)
+        waiting_count[day] = total_waiting
+    # inizializzo il grafico
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=list(new_patient_count.keys()),
+        y=list(new_patient_count.values()),
+        mode='lines+markers',
+        name='Pazienti Aggiunti',
+        line=dict(color='blue'),
+        hovertemplate='%{y}<extra>Pazienti Aggiunti</extra>'
+    ))
+    fig.add_trace(go.Scatter(
+        x=list(resolved_count.keys()),
+        y=list(resolved_count.values()),
+        mode='lines+markers',
+        name='Pazienti operati',
+        line=dict(color='green'),
+        hovertemplate='%{y}<extra>Pazienti operati</extra>'
+    ))
+    fig.add_trace(go.Scatter(
+        x=list(waiting_count.keys()),
+        y=list(waiting_count.values()),
+        mode='lines+markers',
+        name='Pazienti in attesa',
+        line=dict(color='red'),
+        hovertemplate='%{y}<extra>Pazienti in attesa</extra>'
+    ))
+    #aggiungo linea verticale per l'inizio della schedulazione
+    if Settings.start_week_scheduling >= 1:
+        start_day = (Settings.start_week_scheduling) * Settings.week_length_days
+        fig.add_vline(
+            x=start_day,
+            line=dict(color="orange", width=2, dash="dash"),
+            annotation_text="Inizio Schedulazione",
+            annotation_position="top right",
+            annotation_font_color="orange"
+        )
+    fig.update_layout(
+        title=title,
+        xaxis_title="Giorno",
+        yaxis_title="Numero di Pazienti",
+        template="plotly_white",
+        hovermode='x unified'
+    )
+    fig.show()
 
 def MakeGraphs(data : PatientListForSpecialties ):
     for op in data:
@@ -214,6 +313,12 @@ def MakeGraphs(data : PatientListForSpecialties ):
         # PrintTrendLineGraph(data[op], f"Andamento tempo occupato per {op}")
         #Grafico giornaliero per vedere la distribuzione dei pazienti
         PrintDailyBoxGraph(data[op], f"Distribuzione dei pazienti per {op}")
+
+        #Grafico lineare per vedere l'andamento della lista d'attesa
+        PrintWaitingListLineGraph(data[op], f"Andamento lista d'attesa per {op}")
+
+        # Box plot per vedere il tempo di attesa
+        PrintWaitingTimeBoxPlotGraph(data[op], f"Tempi di attesa per {op}")
 
 
 

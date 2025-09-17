@@ -57,13 +57,13 @@ def main():
     #     workstations_per_type=Settings.workstations_config,
     #     seed=2915453889
     # )
-    # try :
-    #     schedule = group_daily_with_mtb_logic_optimized(all_patient_records) 
-    # except Exception as e:
-    #     print("Errore durante l'ottimizzazione giornaliera:", e)
-    #     print("Si ripiega sulla versione non ottimizzata.")
-    #     schedule = group_daily_with_mtb_logic(all_patient_records) #mi sono finite le licenze di cplex
-    schedule = group_daily_with_mtb_logic(all_patient_records) #mi sono finite le licenze di cplex
+    try :
+        schedule = group_daily_with_mtb_logic_optimized(all_patient_records) 
+    except Exception as e:
+        print("Errore durante l'ottimizzazione giornaliera:", e)
+        print("Si ripiega sulla versione non ottimizzata.")
+        schedule = group_daily_with_mtb_logic(all_patient_records) #mi sono finite le licenze di cplex
+    # schedule = group_daily_with_mtb_logic(all_patient_records) #mi sono finite le licenze di cplex
     
     scheduleJson_path = export_json_schedule(schedule.to_dict(), project_root)
 

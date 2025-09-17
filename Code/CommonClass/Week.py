@@ -59,6 +59,7 @@ class Week:
                 if p.id == patientID:
                     return self.weekNum * Settings.week_length_days + d.day.value
         return -1
+    
     #endregion
     #region: Funzioni Json
     def to_dict(self):
