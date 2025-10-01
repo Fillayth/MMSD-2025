@@ -12,8 +12,6 @@ def main():
     Main function to generate patient records and weekly reports.
     """
     #specialties = ["Specialty A"]  # Insert necessary specialties here
-
-
     specialties = list(Settings.workstations_config.keys())
 
     weekly_hours = Settings.week_hours_to_fill  # Total available hours for operations per week
@@ -30,16 +28,9 @@ def main():
         weekly_hours=weekly_hours,
         num_weeks=Settings.weeks_to_fill,
         seed=Settings.GetSeed(), #197558074,
-        # seed=None,
-        K2_params=K2_params,
-        K7_params=K7_params,
-        K8_params=K8_params,
-        K9_params=K9_params,
-        K3_params=K3_params,
+        specialty_params=Settings.specialty_params,
         people_distribution='poisson',
-        priority_distribution='normal',
-        priority_mean=15,
-        priority_std=5,
+        priority_params=Settings.priority_params,  # <-- passa il nuovo dizionario
         filepath=project_root
     )
 
@@ -63,8 +54,7 @@ def main():
     # schedule = group_daily_with_mtb_logic(all_patient_records) #mi sono finite le licenze di cplex
     
     scheduleJson_path = export_json_schedule(schedule.to_dict(), project_root)
-
-
+    
     # caricare alla fine delle schedulazioni tutti i risultati e gestire in qualche modo la visualizzazione 
 
     MakeGraphs(schedule)

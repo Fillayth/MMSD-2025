@@ -28,6 +28,37 @@ class Settings:
     week_hours_to_fill = 80  # 80 hours
     # Number of weeks to fill
     weeks_to_fill = 4
+
+    specialty_params = {
+        "Specialty A": {
+            'K2': {'distribution': 'lognormal', 'mean': 1.98, 'std': 0.50},
+            'K7': {'distribution': 'gamma', 'shape': 3.25, 'scale': 4.22},
+            'K8': {'distribution': 'lognormal', 'mean': 2.53, 'std': 0.72},
+            'K9': {'distribution': 'lognormal', 'mean': 1.24, 'std': 0.60},
+            'K3': {'distribution': 'lognormal', 'mean': 1.60, 'std': 0.67}
+        },
+        "Specialty B": {
+            'K2': {'distribution': 'lognormal', 'mean': 2.10, 'std': 0.55},
+            'K7': {'distribution': 'gamma', 'shape': 3.50, 'scale': 4.50},
+            'K8': {'distribution': 'lognormal', 'mean': 2.70, 'std': 0.80},
+            'K9': {'distribution': 'lognormal', 'mean': 1.30, 'std': 0.65},
+            'K3': {'distribution': 'lognormal', 'mean': 1.70, 'std': 0.70}
+        }
+    }
+
+    priority_params = {
+        "Specialty A": {
+            "distribution": "normal",
+            "mean": 15,
+            "std": 5
+        },
+        "Specialty B": {
+            "distribution": "normal",
+            "mean": 20,
+            "std": 7
+        }
+    }
+
     #endregion
 
     #region CSV Results Settings
