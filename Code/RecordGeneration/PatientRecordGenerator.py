@@ -97,15 +97,9 @@ def generate_csv(
     weekly_hours,
     num_weeks,
     seed,
-    K2_params,
-    K7_params,
-    K8_params,
-    K9_params,
-    K3_params,
+    specialty_params,
     people_distribution,
-    priority_distribution,
-    priority_mean,
-    priority_std,
+    priority_params,  # <-- nuovo parametro
     filepath
 ) -> tuple[str, str]:
     # Genera un file CSV con i dati simulati dei pazienti in lista d'attesa.
@@ -142,9 +136,14 @@ def generate_csv(
                     break
 
                 operation_type = random.choice(specialties)
-                estimated_time = generate_time(K2_params, K7_params, K8_params, K9_params, K3_params)
+                params = specialty_params[operation_type]
+                prio_params = priority_params[operation_type]  # Ottieni i parametri di priorità per la specialità
+
+                estimated_time = generate_time(
+                    params['K2'], params['K7'], params['K8'], params['K9'], params['K3']
+                )
                 priority = sample_from_distribution(
-                    priority_distribution, int, mean=priority_mean, std=priority_std
+                    prio_params['distribution'], int, mean=prio_params['mean'], std=prio_params['std']
                 )
                 absolute_day = week * 5 + weekday
 
@@ -174,13 +173,38 @@ def generate_csv(
 
 
 if __name__ == "__main__":
-    specialties = ["Specialty A"]  # Inserisci qui le specialità necessarie
-    weekly_hours = 80  # Numero totale di ore disponibili per le operazioni a settimana
-    K2_params = {'distribution': 'lognormal', 'mean': 1.980694593, 'std': 0.5021391517}
-    K7_params = {'distribution': 'gamma', 'shape': 3.25036037, 'scale': 4.22461821}
-    K8_params = {'distribution': 'lognormal', 'mean': 2.529958165, 'std': 0.7196641252}
-    K9_params = {'distribution': 'lognormal', 'mean': 1.238535974, 'std': 0.6021773292}
-    K3_params = {'distribution': 'lognormal', 'mean': 1.59782238, 'std': 0.6741858934}
+    specialties = ["Specialty A", "Specialty B"]  # Esempio con più specialità
+    weekly_hours = 80
+
+    specialty_params = {
+        "Specialty A": {
+            'K2': {'distribution': 'lognormal', 'mean': 1.98, 'std': 0.50},
+            'K7': {'distribution': 'gamma', 'shape': 3.25, 'scale': 4.22},
+            'K8': {'distribution': 'lognormal', 'mean': 2.53, 'std': 0.72},
+            'K9': {'distribution': 'lognormal', 'mean': 1.24, 'std': 0.60},
+            'K3': {'distribution': 'lognormal', 'mean': 1.60, 'std': 0.67}
+        },
+        "Specialty B": {
+            'K2': {'distribution': 'lognormal', 'mean': 2.10, 'std': 0.55},
+            'K7': {'distribution': 'gamma', 'shape': 3.50, 'scale': 4.50},
+            'K8': {'distribution': 'lognormal', 'mean': 2.70, 'std': 0.80},
+            'K9': {'distribution': 'lognormal', 'mean': 1.30, 'std': 0.65},
+            'K3': {'distribution': 'lognormal', 'mean': 1.70, 'std': 0.70}
+        }
+    }
+
+    priority_params = {
+        "Specialty A": {
+            "distribution": "normal",
+            "mean": 15,
+            "std": 5
+        },
+        "Specialty B": {
+            "distribution": "normal",
+            "mean": 20,
+            "std": 7
+        }
+    }
 
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     generate_csv(
@@ -188,15 +212,9 @@ if __name__ == "__main__":
         weekly_hours=weekly_hours,
         num_weeks=52,
         seed=None,
-        K2_params=K2_params,
-        K7_params=K7_params,
-        K8_params=K8_params,
-        K9_params=K9_params,
-        K3_params=K3_params,
+        specialty_params=specialty_params,
         people_distribution='poisson',
-        priority_distribution='normal',
-        priority_mean=15,
-        priority_std=5,
+        priority_params=priority_params,  # <-- passa il nuovo dizionario
         filepath=project_root
     )
     print("File 'Patient_Record.csv' generato con successo.")
