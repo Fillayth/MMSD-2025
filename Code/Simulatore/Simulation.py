@@ -16,20 +16,16 @@ from Simulatore.Optimizer import group_weekly_with_mtb_logic_optimized, optimize
 # Reads the CSV file and organizes patient data by operation type
 def read_and_split_by_operation_with_metadata(csv_file) -> PatientListForSpecialties:
     with open(csv_file, mode='r', newline='', encoding='utf-8') as f:
-        content = f.readlines()[2:]  # Skip the first two header lines
-        reader = csv.reader(content)
-        lines = list(reader)
+        reader = csv.DictReader(f)
+        spc = PatientListForSpecialties()
 
-    spc = PatientListForSpecialties()
-
-    for row in lines:
-        patient_id, sp_type, eot, day, mtb = row
-        #qui ci vorrebbe un throw ex se sp_type non è corretto 
-        spc[sp_type].append(Patient(
-            id=int(patient_id),
-            eot=float(eot),
-            day=int(day),
-            mtb=int(mtb)
+        for row in reader:
+            sp_type = row["Specialty"].strip()
+            spc[sp_type].append(Patient(
+                id=int(row["Patient ID"]),
+                eot=float(row["EOT (Estimated Operation Time in minutes)"]),
+                day=int(row["Day (Day Added to Waiting List)"]),
+                mtb=int(row["MTB (Priority, max waiting days)"])
             ))
     return spc
 
@@ -78,7 +74,6 @@ def group_daily_with_mtb_logic(ops_dict: PatientListForSpecialties) ->List[Week]
                 #today_number += 5
         #alla fine del cilo sui pazienti totali, inserisco anche l'ultima settimana nella lista
         weeks[op_type].append(week)
-
     return weeks
 
 def group_daily_with_mtb_logic_optimized(
@@ -141,6 +136,7 @@ def export_json_schedule(data, filepath, filename="weekly_schedule.json") -> str
     print(f"JSON exported to {file}")
     return file
 
+
 def ExportCSVResults(data: PatientListForSpecialties):
     for op, weeks in data.items():
         
@@ -198,9 +194,32 @@ def ExportCSVAnalysisResults(schedule: PatientListForSpecialties, dirPath: str):
                         
     print(f"Schedule results exported to {output_path}")
 
+
 # Main program execution
 if __name__ == "__main__":
+
+
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "Records", "seed-3109030607"))
+    csv_path = os.path.join(base_dir, "Patient_Record.csv")
+
+    spc = read_and_split_by_operation_with_metadata(csv_path)
+
+    # ---- convert Patient objects -> dicts for the optimizer ----
+    ops_for_optimizer = {}
+    for specialty, patients in spc.items():
+        ops_for_optimizer[specialty] = [
+            {
+                "id": p.id,
+                "eot": p.eot,
+                "day": p.day,
+                "mtb": p.mtb
+            }
+            for p in patients
+        ]
+
+    # daily grouping (still uses Patient objects)
     schedule = PatientListForSpecialties()
+
     path = os.path.abspath("Data\Records\seed-1124098546")
 
     spc = read_and_split_by_operation_with_metadata(path + "\Patient_Record.csv")
