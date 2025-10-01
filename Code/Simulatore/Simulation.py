@@ -131,9 +131,7 @@ def group_daily_with_mtb_logic_optimized(
             print(f"Assigned this round: {len(assigned_ids)}")
             print(f"Current week: {current_week.weekNum}")
             print(f"Batch size: {len(batch)}")
-
-
-    
+   
 def export_json_schedule(data, filepath, filename="weekly_schedule.json") -> str:
     if not os.path.exists(filepath):
         os.makedirs(filepath)
@@ -156,26 +154,61 @@ def ExportCSVResults(data: PatientListForSpecialties):
                     writer.writerow([Settings.seed ,p.id, p.eot, p.day, p.mtb, p.workstation, p.overdue, scheduled_day]) 
                         #uso Settings.seed perchè so che nel main è stato usato, altimenti sarebbe più sicuro usare GetSeed
         print(f"CSV results exported to {filename}")
+
+# Function to export in CVS format the analysis on the schedule results
+def ExportCSVAnalysisResults(schedule: PatientListForSpecialties, dirPath: str):
+    """
+    Export the schedule results to a CSV file.
+
+    Args:
+        schedule (PatientListForSpecialties): The schedule data to export.
+    """
+    
+    if not os.path.exists(dirPath):
+        os.makedirs(dirPath)
+    output_path = os.path.join(dirPath, "schedule_analysis.csv")
+    with open(output_path, mode='w', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Specialty", "Week", "Schedueld Patients / Current Patients", "Average Waiting Time (days)", "Average Priority"])
+        
+        for specialty, weeks in schedule.items():
+            if weeks is None or not (isinstance(weeks, list) and all(isinstance(w, Week)for w in weeks)) or len(weeks) == 0:
+                continue
+            all_patients = [p for week in weeks for p in week.patients()]
+            if not all_patients:
+                continue
+            for week in weeks:
+                avg_waiting_time = 0
+                weekly_patients = [p for p in all_patients if p.day <= (week.weekNum * Settings.week_length_days) and week.getNumberOpDayByPatientID(p.id) >= ((week.weekNum - 1) * Settings.week_length_days)]
+                for p in week.patients():
+                    waiting_time_days = week.getNumberOpDayByPatientID(p.id) - p.day
+                    # waiting time calcolato come differenza tra il giorno in cui è stato operato e il giorno in cui è arrivato 
+                    if waiting_time_days < 0:
+                        raise ValueError(f"Calculated negative waiting time for patient ID {p.id}. Check scheduling logic.")
+                    avg_waiting_time += waiting_time_days
+                    # Debugging output
+                    # print(f"Patient ID: {p.id}, Waiting Time: {p.waiting_time_days} days")
+                    # print(f"Patient ID: {p.id}, Scheduled Day: {week.getNumberOpDayByPatientID(p.id)}, Arrival Day: {p.day}, Waiting Time: {p.waiting_time_days} days")
+                # total patients forse e' da correggere calcolando i pazienti presenti nella lista alla fine della settimana
+                total_patients = len(weekly_patients)
+                #total_patients = len(week.patients())
+                avg_waiting_time = avg_waiting_time / total_patients
+                avg_priority = sum(p.mtb for p in week.patients()) / total_patients
+                writer.writerow([specialty, week.weekNum, f"{len(week.patients())}/{total_patients}", f"{avg_waiting_time:.2f}", f"{avg_priority:.2f}"])
+                        
+    print(f"Schedule results exported to {output_path}")
+
 # Main program execution
 if __name__ == "__main__":
     schedule = PatientListForSpecialties()
-    spc = read_and_split_by_operation_with_metadata("lista_attesa_simulata.csv")
-    # si prendono in considerazione tutti gli utenti per una data Operazione
-    for spcName in schedule:
-        schedule[spcName] = group_daily_with_mtb_logic(spc[spcName])
+    path = os.path.abspath("Data\Records\seed-1124098546")
 
-    # Call the optimized scheduling function
-    schedule = group_weekly_with_mtb_logic_optimized(
-        spc,
-        weekly_limit=Settings.weekly_operation_limit,
-        week_length_days=5,
-        workstations_per_type=Settings.workstations_config,
-        seed=2915453889
-    )
+    spc = read_and_split_by_operation_with_metadata(path + "\Patient_Record.csv")
 
-
-    export_json_schedule(schedule.to_dict(), os.getcwd())
-
+    schedule = group_daily_with_mtb_logic(spc)
+    
+    export_json_schedule(schedule.to_dict(), path)
+    ExportCSVAnalysisResults(schedule, path)
 
 
 

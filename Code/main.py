@@ -1,13 +1,12 @@
-import json
 import os
 
-from CommonClass.PatientListForSpecialties import PatientListForSpecialties
 from Grafici.Graph import MakeGraphs
 from RecordGeneration.PatientRecordGenerator import generate_csv
 from settings import Settings
-from Simulatore.Simulation import group_daily_with_mtb_logic_optimized, read_and_split_by_operation_with_metadata, group_daily_with_mtb_logic, export_json_schedule, ExportCSVResults
-from Simulatore.Optimizer import group_weekly_with_mtb_logic_optimized
+from Simulatore.Simulation import group_daily_with_mtb_logic_optimized, read_and_split_by_operation_with_metadata, group_daily_with_mtb_logic, export_json_schedule, ExportCSVResults, ExportCSVAnalysisResults
 
+
+# Main function to generate patient records and weekly reports
 def main():
     """
     Main function to generate patient records and weekly reports.
@@ -47,8 +46,6 @@ def main():
     project_root = os.path.dirname(os.path.abspath(paths[0]))
 
     all_patient_records = read_and_split_by_operation_with_metadata(paths[0])
-    
-    # creRE operazioni di ottimizzazione dei tempi delle schedulazioni
 
     # schedule = group_weekly_with_mtb_logic_optimized(
     #     all_patient_records,
@@ -70,13 +67,9 @@ def main():
 
     # caricare alla fine delle schedulazioni tutti i risultati e gestire in qualche modo la visualizzazione 
 
-    # with open(scheduleJson_path, 'r', encoding='utf-8') as file:
-    #     data = json.load(file)
-        
-    #MakeGraphs(PatientListForSpecialties.from_dict(data))
     MakeGraphs(schedule)
     ExportCSVResults(schedule)
-
+    ExportCSVAnalysisResults(schedule, project_root)
 
 
 if __name__ == "__main__":

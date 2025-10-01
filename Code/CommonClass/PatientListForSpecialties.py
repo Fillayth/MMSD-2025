@@ -26,6 +26,8 @@ class PatientListForSpecialties: #PLFS
         return self.list.values()
     def items(self):
         return self.list.items()
+    def keys(self):
+        return self.list.keys()
 
     #region: Funzioni Json
     def to_dict(self):

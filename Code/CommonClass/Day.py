@@ -56,12 +56,10 @@ class Day:
         return {
             "day":self.day.name,
             "workstations":[opRoom.to_dict() for opRoom in self.operatingRooms]
-            #"patients":[p.to_dict() for p in self.patients]
         }
 
     @classmethod
     def from_dict(cls, data):
-        #patients = [Patient.from_dict(p) for p in data['patients']]
         operatingRooms = [OperatingRoomShedule.from_dict(opRoom) for opRoom in data['workstations']]
         return cls(Days[data['day']], operatingRooms)
     #endregion

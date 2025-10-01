@@ -17,11 +17,6 @@ from settings import Settings
 class Week:
     def __init__(self, weekNum: int, specialty: str = "Specialty A"):
         self.weekNum = weekNum
-        # if isinstance(specialty, str):
-        #     specialty_enum = next(s for s in Specialty if s.value == specialty)
-        #     self.specialty = specialty_enum
-        # else:
-        #     self.specialty = specialty
         if specialty not in Settings.workstations_config:
             raise ValueError(f"Specialty '{specialty}' non è configurata in Settings.")
 
@@ -35,14 +30,9 @@ class Week:
                 ]
             )
             for day_enum in range(Settings.week_length_days)
-            #for day_enum in Days
         ]
     #region: Funzioni 
     def insertPatient(self, patient: Patient) -> bool:
-        # #per mantenere il bool sull urgenza 
-        # p = OperationPatient(patient)
-        # p.overdue = (self.weekNum + 1) * 5 >= patient.day+patient.mtb
-
         for d in self.dailySchedule:
             if d.insertPatient(patient=patient):
                 return True
@@ -74,6 +64,5 @@ class Week:
     def from_dict(cls, data):
         week = cls(data['week'])
         week.dailySchedule = [Day.from_dict(d) for d in data["days"]]
-        # week.dailySchedule = [DailySchedule.from_dict(d) for d in data["days"]]
         return week
     #endregion
