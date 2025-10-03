@@ -158,13 +158,13 @@ def group_weekly_with_mtb_logic_optimized(ops_dict, weekly_limit=Settings.weekly
             current_week_end = current_week_start + week_length_days - 1
             next_week_end = current_week_end + week_length_days
 
-            # Only consider patients that have arrived
-            available_patients = [p for p in remaining if p.day <= current_week_start]
+            # Pazienti disponibili: solo quelli arrivati PRIMA dell'inizio della settimana corrente
+            available_patients = [p for p in remaining if p.day < current_week_start]
 
             # Skip week if no patients available yet
             if not available_patients:
                 grouped_schedule[op_type].append({
-                    "week": week_number + 1,
+                    "week": week_number,
                     "patients": []
                 })
                 week_number += 1

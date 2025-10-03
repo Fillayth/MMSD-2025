@@ -43,7 +43,7 @@ def group_daily_with_mtb_logic(ops_dict: PatientListForSpecialties) ->List[Week]
         weeks[op_type] = []
         workStation = 0
         while remaining:
-            for_this_week = [p for p in remaining if p.day <= today_number(week.weekNum)]
+            for_this_week = [p for p in remaining if p.day < today_number(week.weekNum)]
             #ordino i pazienti in base all'urgenza 
             ordered = sorted(for_this_week, key= lambda x: x.day + x.mtb - today_number(week.weekNum), reverse=False ) 
             # serve far emergere i patient con eot piu alti nella cerchia dei piu urgenti per ottimizzare gli spazi 
@@ -93,7 +93,7 @@ def group_daily_with_mtb_logic_optimized(
             next_week_end = current_week_end + week_length_days
 
             # Only consider patients that have arrived
-            available_patients = [p for p in remaining if p.day <= current_week_start]
+            available_patients = [p for p in remaining if p.day < current_week_start]
 
             # Skip week if no patients available yet
             if not available_patients:
@@ -135,7 +135,6 @@ def export_json_schedule(data, filepath, filename="weekly_schedule.json") -> str
         json.dump(data, f, indent=4)
     print(f"JSON exported to {file}")
     return file
-
 
 def ExportCSVResults(data: PatientListForSpecialties):
     for op, weeks in data.items():
@@ -220,9 +219,9 @@ if __name__ == "__main__":
     # daily grouping (still uses Patient objects)
     schedule = PatientListForSpecialties()
 
-    path = os.path.abspath("Data\Records\seed-1124098546")
+    path = os.path.abspath("Data\\Records\\seed-1124098546")
 
-    spc = read_and_split_by_operation_with_metadata(path + "\Patient_Record.csv")
+    spc = read_and_split_by_operation_with_metadata(path + "\\Patient_Record.csv")
 
     schedule = group_daily_with_mtb_logic(spc)
     

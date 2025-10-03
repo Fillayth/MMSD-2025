@@ -7,7 +7,7 @@ class Settings:
     #region Global Settings
 
 
-    seed = 197558074  # Random seed for reproducibility
+    seed = 1 # Random seed for reproducibility
     #seed = None  # Random seed for reproducibility
     # Specialities and number of workstations per specialty
     workstations_config = {
@@ -76,6 +76,6 @@ class Settings:
     # Length of a week in days
     week_length_days = 5    
     # Solver configuration
-    solver = pyo.SolverFactory('cplex_direct')
+    solver = pyo.SolverFactory('cplex_direct')  # Use CPLEX solver
     #endregion
 

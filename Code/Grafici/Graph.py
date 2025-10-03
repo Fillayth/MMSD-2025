@@ -325,7 +325,7 @@ def MakeGraphs(data : PatientListForSpecialties ):
 
 if __name__ == "__main__":
     # file_path = "weekly_schedule.json"
-    file_path = "Data\Records\seed-197558074\weekly_schedule.json"
+    file_path = "Data\\Records\seed-197558074\weekly_schedule.json"
     with open(file_path, mode='r', newline='', encoding='utf-8') as f:
         data = json.load(f)
     ops = PatientListForSpecialties.from_dict(data)
