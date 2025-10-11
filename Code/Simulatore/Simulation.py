@@ -14,20 +14,30 @@ from settings import Settings
 from Simulatore.Optimizer import group_weekly_with_mtb_logic_optimized, optimize_daily_batch as opt_daily
 
 # Reads the CSV file and organizes patient data by operation type
-def read_and_split_by_operation_with_metadata(csv_file) -> PatientListForSpecialties:
+def read_and_split_by_operation_with_metadata(csv_file) :
     with open(csv_file, mode='r', newline='', encoding='utf-8') as f:
         reader = csv.DictReader(f)
-        spc = PatientListForSpecialties()
-
+        result = []
         for row in reader:
-            sp_type = row["Specialty"].strip()
-            spc[sp_type].append(Patient(
-                id=int(row["Patient ID"]),
-                eot=float(row["EOT (Estimated Operation Time in minutes)"]),
-                day=int(row["Day (Day Added to Waiting List)"]),
-                mtb=int(row["MTB (Priority, max waiting days)"])
-            ))
-    return spc
+            result.append({
+                "Specialty": row["Specialty"],
+                "id": int(row["Patient ID"]),
+                "eot": float(row["EOT (Estimated Operation Time in minutes)"]),
+                "day": int(row["Day (Day Added to Waiting List)"]),
+                "mtb": int(row["MTB (Priority, max waiting days)"])
+            })
+
+        # spc = []
+
+        # for row in reader:
+        #     sp_type = row["Specialty"].strip()
+        #     spc[sp_type].append(Patient(
+        #         id=int(row["Patient ID"]),
+        #         eot=float(row["EOT (Estimated Operation Time in minutes)"]),
+        #         day=int(row["Day (Day Added to Waiting List)"]),
+        #         mtb=int(row["MTB (Priority, max waiting days)"])
+        #     ))
+    return result
 
 def group_daily_with_mtb_logic(ops_dict: PatientListForSpecialties) ->List[Week]:
     day_for_week = Settings.week_length_days #valore statico, lo uso per impostare le settimane 
@@ -79,16 +89,17 @@ def group_daily_with_mtb_logic(ops_dict: PatientListForSpecialties) ->List[Week]
 def group_daily_with_mtb_logic_optimized(
         ops_dict: List[Patient],
         week_length_days=Settings.week_length_days, 
-        ) -> PatientListForSpecialties :
+        ) :
     
-    result = PatientListForSpecialties()
+    result = {}
     for op_type, patients in ops_dict.items():
         remaining = patients.copy()
-        current_week = Week(0, op_type)
+        #current_week = Week(Settings.start_week_scheduling, op_type)
+        current_week = Settings.start_week_scheduling
         result[op_type] = []
 
         while remaining:
-            current_week_start = current_week.weekNum * week_length_days
+            current_week_start = current_week * week_length_days
             current_week_end = current_week_start + week_length_days - 1
             next_week_end = current_week_end + week_length_days
 
@@ -97,35 +108,48 @@ def group_daily_with_mtb_logic_optimized(
 
             # Skip week if no patients available yet
             if not available_patients:
-                result[op_type].append(current_week)
-                numWeek = current_week.weekNum + 1
-                current_week = Week(numWeek, op_type) 
+                #result[op_type].append(current_week)
+                # numWeek = current_week.weekNum + 1
+                # current_week = Week(numWeek, op_type)
+                current_week += 1 
                 continue
 
-            # Split into overdue now, overdue next, normal
-            overdue_now = [p for p in available_patients if current_week_end - p.day >= p.mtb]
-            overdue_next = [p for p in available_patients if next_week_end - p.day >= p.mtb and p not in overdue_now]
-            normal = [p for p in available_patients if p not in overdue_now and p not in overdue_next]
+            # # Split into overdue now, overdue next, normal
+            # overdue_now = [p for p in available_patients if current_week_end - p.day >= p.mtb]
+            # overdue_next = [p for p in available_patients if next_week_end - p.day >= p.mtb and p not in overdue_now]
+            # normal = [p for p in available_patients if not (p in overdue_now or p in overdue_next)]
 
-            ordered_patients = overdue_now + overdue_next + normal
+            # ordered_patients = overdue_now + overdue_next + normal
 
             # Optimize assignment
-            batch = opt_daily(ordered_patients, current_week)
+            batch: List[Patient] = []
+            n = 20
+            if len(available_patients) >= n:
+                for i in range(0, len(available_patients), n):
+                    blocco = available_patients[i:i+n]
+                    otresult = opt_daily(blocco, current_week, op_type)
+                    for p in otresult:
+                        if p not in batch:
+                            batch.append(p)
+            else :
+                batch = opt_daily(available_patients, current_week, op_type)
 
-            if batch:
-                current_week = batch[-1]
+            # if batch:
+            #     current_week = batch[-1]
             
-            for week in batch[:-1]:
-                result[op_type].append(week)
+            for patient in batch:
+                result[op_type].append(patient)
 
 
             # Remove assigned patients from remaining
-            assigned_ids = {p.id for week in batch for p in week.patients()}
+            assigned_ids = {p.id for p in batch}
             remaining = [p for p in remaining if p.id not in assigned_ids]
             print(f"Remaining count: {len(remaining)}")
             print(f"Assigned this round: {len(assigned_ids)}")
-            print(f"Current week: {current_week.weekNum}")
+            print(f"Current week: {current_week}")
             print(f"Batch size: {len(batch)}")
+            current_week+=1
+    return result
    
 def export_json_schedule(data, filepath, filename="weekly_schedule.json") -> str:
     if not os.path.exists(filepath):
@@ -173,6 +197,8 @@ def ExportCSVAnalysisResults(schedule: PatientListForSpecialties, dirPath: str):
             if not all_patients:
                 continue
             for week in weeks:
+                if len(week.patients()) <= 0:
+                    continue
                 avg_waiting_time = 0
                 weekly_patients = [p for p in all_patients if p.day <= (week.weekNum * Settings.week_length_days) and week.getNumberOpDayByPatientID(p.id) >= ((week.weekNum - 1) * Settings.week_length_days)]
                 for p in week.patients():
@@ -198,35 +224,44 @@ def ExportCSVAnalysisResults(schedule: PatientListForSpecialties, dirPath: str):
 if __name__ == "__main__":
 
 
-    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "Records", "seed-3109030607"))
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..\\..\\Data", "Records", "seed-1"))
     csv_path = os.path.join(base_dir, "Patient_Record.csv")
 
     spc = read_and_split_by_operation_with_metadata(csv_path)
 
-    # ---- convert Patient objects -> dicts for the optimizer ----
-    ops_for_optimizer = {}
-    for specialty, patients in spc.items():
-        ops_for_optimizer[specialty] = [
-            {
-                "id": p.id,
-                "eot": p.eot,
-                "day": p.day,
-                "mtb": p.mtb
-            }
-            for p in patients
-        ]
+
 
     # daily grouping (still uses Patient objects)
     schedule = PatientListForSpecialties()
 
-    path = os.path.abspath("Data\\Records\\seed-1124098546")
+    # for op_type, patients in spc.items():
+    #     spc_selected[op_type] = [p for p in sorted(patients, key=lambda p: p.id) if p.id <= 190]
+    spc_selected = [value for id, value in enumerate(spc) if id <= 190]
+    # schedule = group_daily_with_mtb_logic(spc)
 
-    spc = read_and_split_by_operation_with_metadata(path + "\\Patient_Record.csv")
+    #raggruppo i valori di spc per specyalty
+    patient_list = {}
+    # i = 0
+    for row in sorted(spc, key=lambda r: r["Specialty"]):
+        specialty = row["Specialty"]
+        if specialty not in patient_list:
+            patient_list[specialty] = []
+        patient_list[specialty].append(Patient(
+            id=row["id"],
+            eot=row["eot"],
+            day=row["day"],
+            mtb=row["mtb"]
+        ))
+        # i+=1
+        # if i == 190:
+        #     break
 
-    schedule = group_daily_with_mtb_logic(spc)
-    
-    export_json_schedule(schedule.to_dict(), path)
-    ExportCSVAnalysisResults(schedule, path)
+
+
+    schedule = group_daily_with_mtb_logic_optimized(patient_list)
+    data = {key: [v.to_dict() for v in values] for key, values in schedule.items()}
+    export_json_schedule(data, base_dir)
+    ExportCSVAnalysisResults(data, base_dir)
 
 
 

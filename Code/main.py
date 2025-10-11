@@ -56,7 +56,7 @@ def main():
     scheduleJson_path = export_json_schedule(schedule.to_dict(), project_root)
     
     # caricare alla fine delle schedulazioni tutti i risultati e gestire in qualche modo la visualizzazione 
-
+    
     MakeGraphs(schedule)
     ExportCSVResults(schedule)
     ExportCSVAnalysisResults(schedule, project_root)
