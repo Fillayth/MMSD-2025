@@ -73,7 +73,7 @@ class Settings:
     daily_operation_limit = 480  # 8 hours
     # Weekly operation time limit in minutes
     weekly_operation_limit = 2400  # 40 hours
-    # Length of a week in days
+    # Length of a week in days 
     week_length_days = 5    
     # Solver configuration
     solver = pyo.SolverFactory('cplex_direct')  # Use CPLEX solver

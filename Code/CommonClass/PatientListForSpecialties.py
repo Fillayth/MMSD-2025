@@ -5,6 +5,7 @@ if os.path.basename(__file__) != "main.py":
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'Code')))
 
 from CommonClass.Week import Week
+from CommonClass.Patient import Patient
 
 
 class PatientListForSpecialties: #PLFS 
@@ -32,7 +33,11 @@ class PatientListForSpecialties: #PLFS
     #region: Funzioni Json
     def to_dict(self):
         return {
-            key: [w.to_dict() for w in weeks] for key, weeks in self.list.items()
+            key: [v.to_dict() for v in values] for key, values in self.list.items()
+        }
+    def to_json(self):
+        return {
+            key: [v.to_dict() for v in values] for key, values in self.list.items()
         }
 
     @classmethod
@@ -41,6 +46,9 @@ class PatientListForSpecialties: #PLFS
         for key, value in data.items():
             if key not in obj.list:
                 raise ValueError(f"Chiave non valida: {key}")
-            obj[key] = [Week.from_dict(w) for w in value]
+            #obj[key] = [Week.from_dict(w) for w in value]
+            obj[key] = [Patient.from_dict(p) for p in value]
         return obj
+    
+        
     #endregion
