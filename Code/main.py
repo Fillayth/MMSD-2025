@@ -38,19 +38,12 @@ def main():
 
     all_patient_records = read_and_split_by_operation_with_metadata(paths[0])
 
-    # schedule = group_weekly_with_mtb_logic_optimized(
-    #     all_patient_records,
-    #     weekly_limit=Settings.weekly_operation_limit,
-    #     week_length_days=5,
-    #     workstations_per_type=Settings.workstations_config,
-    #     seed=2915453889
-    # )
     try :
         schedule = group_daily_with_mtb_logic_optimized(all_patient_records) 
     except Exception as e:
         print("Errore durante l'ottimizzazione giornaliera:", e)
-        # print("Si ripiega sulla versione non ottimizzata.")
-        # schedule = group_daily_with_mtb_logic(all_patient_records) #mi sono finite le licenze di cplex
+        print("Si ripiega sulla versione non ottimizzata.")
+        schedule = group_daily_with_mtb_logic(all_patient_records) #mi sono finite le licenze di cplex
     # schedule = group_daily_with_mtb_logic(all_patient_records) #mi sono finite le licenze di cplex
     
     scheduleJson_path = export_json_schedule(schedule.to_dict(), project_root)
@@ -59,7 +52,7 @@ def main():
     
     MakeGraphs(schedule)
     #ExportCSVResults(schedule)
-    #ExportCSVAnalysisResults(schedule, project_root)
+    ExportCSVAnalysisResults(schedule, project_root)
 
 
 if __name__ == "__main__":

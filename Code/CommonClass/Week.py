@@ -58,8 +58,6 @@ class Week:
             "days":[day.to_dict() for day in self.dailySchedule]
         }
 
-
-
     @classmethod
     def from_dict(cls, data):
         week = cls(data['week'])

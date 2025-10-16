@@ -100,8 +100,8 @@ def PrintWaitingTimeBoxPlotGraph_v2(operations: PatientListForSpecialties, baset
             } for p in patients])
         df['Tempo_attesa'] = df['Data operazione'] - df['Data inserimento']
         #df['Tempo_attesa'] = df['Tempo_attesa'].dt.days
-        lastWeek = max(p.opDay for p in patients) % week_len + 1
-        for weekNum in range(lastWeek):
+        lastWeek = max(p.opDay for p in patients) % week_len
+        for weekNum in range(lastWeek + 1):
             # Calcola il tempo inutilizzato per ogni giorno della settimana
             waiting_times = df[df['Data operazione'].between((weekNum - 1) * Settings.week_length_days + 1, weekNum * Settings.week_length_days)]['Tempo_attesa']
             data.append(go.Box(

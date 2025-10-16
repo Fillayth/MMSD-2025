@@ -115,17 +115,15 @@ def export_json_schedule(data, filepath, filename="weekly_schedule.json") -> str
     return file
 
 def ExportCSVResults(data: PatientListForSpecialties):
-    for op, weeks in data.items():
+    for op, values in data.items():
         
         filename = Settings.results_filepath + Settings.results_filename
         with open(filename, mode='a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(["Seed","Patient ID", "EOT", "Day", "MTB", "Workstation", "Overdue", "Scheduled Day"])
-            for week in weeks:
-                for p in week.patients():
-                    scheduled_day = week.getNumberOpDayByPatientID(p.id)
-                    writer.writerow([Settings.seed ,p.id, p.eot, p.day, p.mtb, p.workstation, p.overdue, scheduled_day]) 
-                        #uso Settings.seed perchè so che nel main è stato usato, altimenti sarebbe più sicuro usare GetSeed
+            for p in values:
+                writer.writerow([Settings.seed ,p.id, p.eot, p.day, p.mtb, p.workstation, p.overdue, p.opDay]) 
+                    #uso Settings.seed perchè so che nel main è stato usato, altimenti sarebbe più sicuro usare GetSeed
         print(f"CSV results exported to {filename}")
 
 # Function to export in CVS format the analysis on the schedule results
@@ -173,7 +171,43 @@ def ExportCSVAnalysisResults(schedule: PatientListForSpecialties, dirPath: str):
                         
     print(f"Schedule results exported to {output_path}")
 
-
+def ExportCSVAnalysisResults_v2(schedule: PatientListForSpecialties, dirPath: str):
+    if not os.path.exists(dirPath):
+        os.makedirs(dirPath)
+    output_path = os.path.join(dirPath, "schedule_analysis.csv")
+    with open(output_path, mode='w', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Specialty", "Week", "Schedueld Patients / Current Patients", "Average Waiting Time (days)", "Average Priority"])
+        
+        #inizio della settimana di partenza
+        start_week = Settings.start_week_scheduling
+        #lunghezza della settimana
+        week_length = Settings.week_length_days
+        for specialty, all_patients in schedule.items():
+            #calcolo l'ultimo giorno dell'ultima settimana in base all'ultimo giorno di operazione dei pazienti
+            end_weeks = max((p.day for p in all_patients), default=0) // week_length + 1
+            # ciclo per ogni settimana
+            for week_num in range(start_week, end_weeks + 1):
+                # seleziono i pazienti che sono arrivati entro la fine della settimana corrente
+                weekly_patients = [p for p in all_patients if p.day <= (week_num * week_length) and (p.day > ((week_num - 1) * week_length))]
+                # seleziono i pazienti schedulati per la settimana corrente
+                scheduled_patients = [p for p in weekly_patients if (p.opDay <= (week_num * week_length)) and (p.opDay >= ((week_num - 1) * week_length + 1))]
+                # salto le settimane senza pazienti operati
+                if not scheduled_patients:
+                    continue
+                #ciclo per i pazienti della settimana corrente
+                avg_waiting_time = 0
+                for p in scheduled_patients:
+                    waiting_time_days = p.opDay - p.day
+                    if waiting_time_days < 0:
+                        raise ValueError(f"Calculated negative waiting time for patient ID {p.id}. Check scheduling logic.")
+                    avg_waiting_time += waiting_time_days
+                total_patients = len(weekly_patients)
+                avg_waiting_time = avg_waiting_time / len(scheduled_patients)
+                avg_priority = sum(p.mtb for p in scheduled_patients) / len(scheduled_patients)
+                writer.writerow([specialty, week_num, f"{len(scheduled_patients)}/{total_patients}", f"{avg_waiting_time:.2f}", f"{avg_priority:.2f}"])
+                
+    print(f"Schedule results exported to {output_path}")
 # Main program execution
 if __name__ == "__main__":
 
@@ -182,40 +216,23 @@ if __name__ == "__main__":
     csv_path = os.path.join(base_dir, "Patient_Record.csv")
 
     spc = read_and_split_by_operation_with_metadata(csv_path)
-
-
-
-    # daily grouping (still uses Patient objects)
-    schedule = PatientListForSpecialties()
-
-    # for op_type, patients in spc.items():
-    #     spc_selected[op_type] = [p for p in sorted(patients, key=lambda p: p.id) if p.id <= 190]
-    spc_selected = [value for id, value in enumerate(spc) if id <= 190]
-    # schedule = group_daily_with_mtb_logic(spc)
-
-    #raggruppo i valori di spc per specyalty
-    patient_list = {}
-    # i = 0
-    for row in sorted(spc, key=lambda r: r["Specialty"]):
-        specialty = row["Specialty"]
-        if specialty not in patient_list:
-            patient_list[specialty] = []
-        patient_list[specialty].append(Patient(
-            id=row["id"],
-            eot=row["eot"],
-            day=row["day"],
-            mtb=row["mtb"]
-        ))
-        # i+=1
-        # if i == 190:
-        #     break
-
-
-
-    schedule = group_daily_with_mtb_logic_optimized(patient_list)
-    data = {key: [v.to_dict() for v in values] for key, values in schedule.items()}
+    # schedule = PatientListForSpecialties()
+    # schedule = group_daily_with_mtb_logic_optimized(spc)
+    schedule = group_daily_with_mtb_logic(spc)
+    # normalizzo il risultato di group_daily_with_mtb_logic per allinearlo a quello di group_daily_with_mtb_logic_optimized verificando che non ci siano doppioni
+    data = {key: [p.to_dict() for v in values for p in v.patients()] for key, values in schedule.items()}
+    # rimuovo i doppioni
+    for key in data:
+        unique_patients = {}
+        for patient in data[key]:
+            if patient['id'] not in unique_patients:
+                unique_patients[patient['id']] = patient
+        data[key] = list(unique_patients.values())
+    # se il data proviene da group_daily_with_mtb_logic_optimized si usera data.to_dict()
+    # export_json_schedule(schedule.to_dict(), base_dir)
     export_json_schedule(data, base_dir)
-    ExportCSVAnalysisResults(data, base_dir)
+    ExportCSVResults(schedule)
+    ExportCSVAnalysisResults_v2(data, base_dir)
 
 
 

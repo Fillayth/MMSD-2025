@@ -33,11 +33,11 @@ class PatientListForSpecialties: #PLFS
     #region: Funzioni Json
     def to_dict(self):
         return {
-            key: [w.to_dict() for w in weeks] for key, weeks in self.list.items()
+            key: [v.to_dict() for v in values] for key, values in self.list.items()
         }
     def to_json(self):
         return {
-            key: [w.to_dict() for w in weeks] for key, weeks in self.list.items()
+            key: [v.to_dict() for v in values] for key, values in self.list.items()
         }
 
     @classmethod
