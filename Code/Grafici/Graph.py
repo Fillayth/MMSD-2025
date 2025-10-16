@@ -194,11 +194,10 @@ def PrintDailyBoxGraph(operation : list[Week], title : str):
     )
     fig.show()
 def PrintDailyBoxGraph_v2(operation : PatientListForSpecialties, baseTitle : str): 
-    week_len = Settings.week_length_days
-    week_start = Settings.start_week_scheduling
     for op, patients in operation.items():
-        workstation_len = Settings.workstations_config[op]
-        title = baseTitle = op 
+        title = baseTitle + op
+        # estraggo i dati di una operazione dal formato json 
+        # inizializzo il grafico
         fig = go.Figure()
         buttons = []
         num_patients = len(patients)
@@ -208,40 +207,48 @@ def PrintDailyBoxGraph_v2(operation : PatientListForSpecialties, baseTitle : str
             for i, p in enumerate(sorted(patients, key=lambda x: x.id))
         }
         i = 0
-        summ = 0
-        lastWeek = max(p.opDay for p in patients) % week_len
-        for weekNum in range(lastWeek):
-            visible = [False] * len(patients)
-            weeklyPatients = [p for p in patients if p.opDay >= week_len*weekNum and p.opDay < week_len*(weekNum + 1)]
-            summ += len(weeklyPatients)
+        last_day = max(p.opDay for p in patients)
+        num_weeks = (last_day // Settings.week_length_days) + 1
+        days_title = [f"Day:{day}" for day in range(num_weeks * Settings.week_length_days)]
+        #calcolo il giorno di inizio della schedulazione
+        start_index = 0
+        if Settings.start_week_scheduling >= 1:
+            start_day = f"Day:{(Settings.start_week_scheduling) * Settings.week_length_days}"
+            #trovo l'indice del giorno nell'elenco days_title
+            if start_day in days_title:
+                start_index = days_title.index(start_day)
+        for weekNum in range(num_weeks):
+            visible = [False] * num_patients
             text = f"W:{weekNum}" 
-            mins = [round(sum(p.eot for p in weeklyPatients if p.workstation == workstation), 2)
-                for workstation in range(workstation_len)]
-            for p in weeklyPatients:
-                fig.add_trace(go.Bar(
-                    x=[text + f"|OR:{p.workstation}|D:{p.opDay}|ToTMin:{mins[p.workstation]}"],
-                    y=[p.eot],
-                    name=f"Patient {p.id}",
-                    hoverinfo="text",
-                    text=[f"Patient {p.id}: {int(p.eot)}m {int((p.eot % 1) * 60)}s"],
-                    hovertemplate=f'D:{p.opDay}|MTB:{p.mtb}<extra></extra>',
-                    marker=dict(color=color_map_progressive[p.id]),
-                    cliponaxis=True,
-                    textposition='inside',
-                    visible=(weekNum == Settings.start_week_scheduling)
-                ))
-                visible[i] = True
-                i += 1
+            for day in range(weekNum * Settings.week_length_days, (weekNum + 1) * Settings.week_length_days):
+                for room_id in range(Settings.workstations_config[op]):
+                    dailyPatients = [p for p in patients if p.workstation == room_id+1 and p.opDay == day]
+                    mins = round(sum(p.eot for p in dailyPatients), 2)
+                    for p in dailyPatients:
+                        fig.add_trace(go.Bar(
+                            x=[text + f"|OR:{room_id+1}|D:{day}|ToTMin:{mins}"],
+                            y=[p.eot],
+                            name=f"Patient {p.id}",
+                            hoverinfo="text",
+                            text=[f"Patient {p.id}: {int(p.eot)}m {int((p.eot % 1) * 60)}s"],
+                            hovertemplate=f'D:{p.day}|MTB:{p.mtb}<extra></extra>',
+                            marker=dict(color=color_map_progressive[p.id]),
+                            cliponaxis=True,
+                            textposition='inside',
+                            visible=(weekNum == Settings.start_week_scheduling)
+                        ))
+                        visible[i] = True
+                        i += 1
             buttons.append(dict(
                 label=f"Settimana {weekNum}",
                 method="update",
                 args=[{"visible": visible},
-                    {"title": title}]
+                        {"title": title}]
                     #   {"title": f"{title} - Settimana {week.weekNum}"}]
             ))
         # Aggiungo la linea del limite massimo
         limite_massimo = Settings.daily_operation_limit
-        xline = week_len * workstation_len
+        xline = Settings.week_length_days * Settings.workstations_config[op]
         fig.add_shape(
             type="line",
             x0=-0.5, x1=xline - 0.5 ,  # Estendo la linea su tutto l'asse X
@@ -255,7 +262,7 @@ def PrintDailyBoxGraph_v2(operation : PatientListForSpecialties, baseTitle : str
             yshift=10,
             font=dict(color="red")
         )
-        # mostro il risultato 
+        # mostro il risultato       
         fig.update_layout(
             updatemenus=[dict(
                 active=0,
@@ -265,13 +272,23 @@ def PrintDailyBoxGraph_v2(operation : PatientListForSpecialties, baseTitle : str
                 xanchor='right',
                 yanchor='top'
             )],
-            barmode="stack",  
+            barmode="stack",
             title=title,
             showlegend=False,
             yaxis_title="Minuti Totali",
             xaxis_title="Giorni",
         )
+        # if Settings.start_week_scheduling >= 1:
+        #     fig.add_vline(
+        #         x=start_index - 0.5,
+        #         line=dict(color="orange", width=2, dash="dash"),
+        #         annotation_text="Inizio Schedulazione",
+        #         annotation_position="top right",
+        #         annotation_font_color="orange"
+        #     )
         fig.show()
+
+   
 
 def PrintTrendLineGraph(operation : list[Week], title : str): 
     # estraggo i dati di una operazione dal formato json 
@@ -340,39 +357,64 @@ def PrintTrendLineGraph_v2(operation : PatientListForSpecialties, baseTitle : st
     for op, patients in operation.items():
         title = baseTitle = op
         fig = go.Figure()
-        days_title = [f"Day:{patient.day}" for patient in patients]
+        #ordino i pazienti per giorno e per room
+        patients = sorted(patients, key=lambda p: (p.opDay, p.workstation))
+        # Creo le etichette per i giorni
+        # calcolo il numero dell'ultimo giorno della settiamana dell' ultimo giorno operato
+        last_day = max(p.opDay for p in patients)
+        num_weeks = (last_day // Settings.week_length_days) + 1
+        days_title = [f"Day:{day}" for day in range(num_weeks * Settings.week_length_days)]
+        #calcolo il giorno di inizio della schedulazione
+        start_index = 0
+        if Settings.start_week_scheduling >= 1:
+            start_day = f"Day:{(Settings.start_week_scheduling) * Settings.week_length_days}"
+            #trovo l'indice del giorno nell'elenco days_title
+            if start_day in days_title:
+                start_index = days_title.index(start_day)
+            
+
+        # Inizializzo le strutture dati per il calcolo del tempo libero e del numero di pazienti 
         room_ids = range(Settings.workstations_config[op])
-        room_free_time = {room_id:[] for room_id in room_ids}
-        room_patient = {room_id:[] for room_id in room_ids}
-        days = max([p.day for p in patients])
+        room_free_time = {room_id+1:[] for room_id in room_ids}
+        room_patient = {room_id+1:[] for room_id in room_ids}
+        days = max([p.opDay for p in patients])
+        
         for d in range(days):
             for room_id in room_ids:
-                dailyPatients = [p for p in patients if p.workstation == room_id and p.day == d]
+                dailyPatients = [p for p in patients if p.workstation == room_id+1 and p.opDay == d]
                 time_used = sum(p.eot for p in dailyPatients )
                 patient_count = len(dailyPatients)
                 free_time = Settings.daily_operation_limit - time_used
-                room_free_time[room_id].append(free_time)
-                room_patient[room_id].append(patient_count)
-            # Grafico con doppio asse Y
-            fig = make_subplots(specs=[[{"secondary_y": True}]])
-            # Linee: tempo libero per room
-            for room_id, times in room_free_time.items():
-                fig.add_trace(go.Scatter(
-                    x=days_title,
-                    y=times,
-                    name=f"OR:{room_id}-Tempo libero residuo",
-                    mode='lines+markers',
-                    hovertemplate='%{y}<extra>MIN</extra>'
-                ), secondary_y=False)
-            # Barre: pazienti per room
-            for room_id, counts in room_patient.items():
-                fig.add_trace(go.Bar(
-                    x=days_title,
-                    y=counts,
-                    name=f"OR:{room_id}-Numero di Pazienti",
-                    opacity=0.6,
-                    hovertemplate='%{y}<extra>P</extra>'
-                ), secondary_y=True)
+                room_free_time[room_id+1].append(free_time)
+                room_patient[room_id+1].append(patient_count)
+        # Grafico con doppio asse Y
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+        # Barre: pazienti per room
+        for room_id, counts in room_patient.items():
+            fig.add_trace(go.Bar(
+                x=days_title,
+                y=counts,
+                name=f"OR:{room_id}-Numero di Pazienti",
+                opacity=0.6,
+                hovertemplate='%{y}<extra>P</extra>'
+            ), secondary_y=True)
+        # Linee: tempo libero per room
+        for room_id, times in room_free_time.items():
+            fig.add_trace(go.Scatter(
+                x=days_title,
+                y=times,
+                name=f"OR:{room_id}-Tempo libero residuo",
+                mode='lines+markers',
+                hovertemplate='%{y}<extra>MIN</extra>'
+            ), secondary_y=False)
+        if Settings.start_week_scheduling >= 1:
+            fig.add_vline(
+                x=start_index - 0.5,
+                line=dict(color="orange", width=2, dash="dash"),
+                annotation_text="Inizio Schedulazione",
+                annotation_position="top right",
+                annotation_font_color="orange"
+            )
         fig.update_layout(
             title=title,
             xaxis_title="Giorno",
@@ -491,6 +533,8 @@ def PrintWaitingListLineGraph_v2(operations : PatientListForSpecialties, baseTit
             waiting_count[day] = total_waiting
         # inizializzo il grafico
         fig = go.Figure()
+        # Aggiungo le tre linee al grafico
+        # Linea dei pazienti aggiunti
         fig.add_trace(go.Scatter(
             x=list(new_patient_count.keys()),
             y=list(new_patient_count.values()),
@@ -499,6 +543,7 @@ def PrintWaitingListLineGraph_v2(operations : PatientListForSpecialties, baseTit
             line=dict(color='blue'),
             hovertemplate='%{y}<extra>Pazienti Aggiunti</extra>'
         ))
+        # Linea dei pazienti operati
         fig.add_trace(go.Scatter(
             x=list(resolved_count.keys()),
             y=list(resolved_count.values()),
@@ -507,6 +552,7 @@ def PrintWaitingListLineGraph_v2(operations : PatientListForSpecialties, baseTit
             line=dict(color='green'),
             hovertemplate='%{y}<extra>Pazienti operati</extra>'
         ))
+        # Linea dei pazienti in attesa
         fig.add_trace(go.Scatter(
             x=list(waiting_count.keys()),
             y=list(waiting_count.values()),
@@ -539,6 +585,7 @@ def MakeGraphs(data : PatientListForSpecialties ):
     PrintTrendLineGraph_v2(data, "Andamento tempo occupato per " )
     PrintWaitingListLineGraph_v2(data, "Andamento lista d'attesa per ")
     PrintWaitingTimeBoxPlotGraph_v2(data, "Tempi di attesa per ")
+
     # for op in data:
         
         
@@ -562,7 +609,7 @@ def MakeGraphs(data : PatientListForSpecialties ):
 
 if __name__ == "__main__":
     # file_path = "weekly_schedule.json"
-    file_path = "Data\\Records\seed-1\weekly_schedule.json"
+    file_path = "Data\\Records\\seed-1\\weekly_schedule.json"
     with open(file_path, mode='r', newline='', encoding='utf-8') as f:
         data = json.load(f)
     ops = PatientListForSpecialties.from_dict(data)
