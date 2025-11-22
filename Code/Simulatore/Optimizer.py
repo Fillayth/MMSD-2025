@@ -148,7 +148,7 @@ def group_weekly_with_mtb_logic_optimized(ops_dict, weekly_limit=Settings.weekly
     return grouped_schedule
 
 limited_ids = True
-max_pat_len = 100 # a causa dei limiti della licenza del solver
+max_pat_len = 120 # a causa dei limiti della licenza del solver
 
 def CreatePyomoModel(newPatientsList: list[Patient], operatingRoom_count: int, startTime: int, model: pyo.ConcreteModel = None) -> pyo.ConcreteModel:
     '''
