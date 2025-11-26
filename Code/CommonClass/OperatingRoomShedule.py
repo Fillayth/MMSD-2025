@@ -31,6 +31,7 @@ class OperatingRoomShedule:
         if patient.eot + self.getTime() > self._max_time_per_day_:
             return False
         else:
+            patient.workstation = self.id + 1
             self.daily_schedules.append(patient)
             return True
 

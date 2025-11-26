@@ -48,7 +48,7 @@ def read_and_split_by_operation_with_metadata(csv_file) :
         #     ))
     return result
 
-def group_daily_with_mtb_logic(ops_dict: PatientListForSpecialties) ->List[Week]:
+def group_daily_with_mtb_logic(ops_dict: PatientListForSpecialties) ->PatientListForSpecialties:
     day_for_week = Settings.week_length_days #valore statico, lo uso per impostare le settimane 
     #non è il contatore del giorno perchè si scatta di settimana in settimana ma lo uso come indicatore per valutare le urgenze  
     today_number = lambda wN: day_for_week * wN #weekNum      
@@ -86,13 +86,15 @@ def group_daily_with_mtb_logic(ops_dict: PatientListForSpecialties) ->List[Week]
             ## se il ciclo finisce e i pazienti sono ancora presenti vuol dire che la settimana si è riempita
             ## e ne serve una nuova 
             if len(remaining) > 0 :
-                weeks[op_type].append(week)
+                # weeks[op_type].append(week)
+                weeks[op_type].extend(week.patients())
                 weekNum = week.weekNum+1
                 workStation = 0
                 week = Week(weekNum, op_type)
                 #today_number += 5
         #alla fine del cilo sui pazienti totali, inserisco anche l'ultima settimana nella lista
-        weeks[op_type].append(week)
+        # weeks[op_type].append(week)
+        weeks[op_type].extend(week.patients())
     return weeks
 
 def group_daily_with_mtb_logic_optimized(

@@ -18,6 +18,14 @@ from CommonClass.Week import Week
 from CommonClass.Patient import Patient
 from settings import Settings
 
+images_folder = os.path.dirname(os.path.abspath(__file__)) + "/Images"
+
+def ShowFigure(fig: go.Figure, name: str = "grafico"):
+    if not os.path.exists(images_folder):
+        os.makedirs(images_folder)
+    seed = Settings.seed
+    fig.write_html(f"{images_folder}/{name}{seed}.html")
+    fig.show()
 
 def BoxPlotUnusedTime(weeks: list, title: str):
     data = []
@@ -39,7 +47,7 @@ def BoxPlotUnusedTime(weeks: list, title: str):
         yaxis_title="Tempo inutilizzato (minuti)",  
         xaxis_title="Settimane"                     
     )
-    fig.show()
+    ShowFigure(fig, name="BoxPlotUnusedTime")
 '''
 # # Esempio di calcolo delle statistiche per capire cosa rappresenta il box plot
 # df = pd.DataFrame({'Tempo_inutilizzato': [day._minute_of_the_day_ - day.getTime() for week in weeks for day in week.dailySchedule]})
@@ -88,7 +96,7 @@ def PrintWaitingTimeBoxPlotGraph(weeks: list, title: str):
         yaxis_title="Tempo di attesa (giorni)",
         xaxis_title="Settimane"
     )
-    fig.show()
+    ShowFigure(fig, name="WaitingTimeBoxPlot")
 def PrintWaitingTimeBoxPlotGraph_v2(operations: PatientListForSpecialties, basetitle: str):
     week_len = Settings.week_length_days
     for op, patients in operations.items():
@@ -116,7 +124,7 @@ def PrintWaitingTimeBoxPlotGraph_v2(operations: PatientListForSpecialties, baset
             yaxis_title="Tempo di attesa (giorni)",
             xaxis_title="Settimane"
         )
-        fig.show()
+        ShowFigure(fig, name=f"WaitingTimeBoxPlot_{op}")
 
 def PrintDailyBoxGraph(operation : list[Week], title : str): 
     # estraggo i dati di una operazione dal formato json 
@@ -192,7 +200,8 @@ def PrintDailyBoxGraph(operation : list[Week], title : str):
         yaxis_title="Minuti Totali",
         xaxis_title="Giorni",
     )
-    fig.show()
+    ShowFigure(fig, name="DailyBoxGraph")
+
 def PrintDailyBoxGraph_v2(operation : PatientListForSpecialties, baseTitle : str): 
     for op, patients in operation.items():
         title = baseTitle + op
@@ -286,8 +295,7 @@ def PrintDailyBoxGraph_v2(operation : PatientListForSpecialties, baseTitle : str
         #         annotation_position="top right",
         #         annotation_font_color="orange"
         #     )
-        fig.show()
-
+        ShowFigure(fig, name=f"DailyBoxGraph_{op}")
    
 
 def PrintTrendLineGraph(operation : list[Week], title : str): 
@@ -350,7 +358,8 @@ def PrintTrendLineGraph(operation : list[Week], title : str):
         title_text="Numero pazienti",
         secondary_y=True
     )
-    fig.show()
+    ShowFigure(fig, name="TrendLineGraph")
+    
 def PrintTrendLineGraph_v2(operation : PatientListForSpecialties, baseTitle : str): 
     # estraggo i dati di una operazione dal formato json 
     # inizializzo il grafico
@@ -431,7 +440,7 @@ def PrintTrendLineGraph_v2(operation : PatientListForSpecialties, baseTitle : st
             title_text="Numero pazienti",
             secondary_y=True
         )
-        fig.show()
+        ShowFigure(fig, name=f"TrendLineGraph_{op}")
 
 def PrintWaitingListLineGraph(weeks : list[Week], title : str): 
     # Escludo l'ultima settimana se non è completa
@@ -505,7 +514,8 @@ def PrintWaitingListLineGraph(weeks : list[Week], title : str):
         template="plotly_white",
         hovermode='x unified'
     )
-    fig.show()
+    ShowFigure(fig, name="WaitingListLineGraph")
+
 def PrintWaitingListLineGraph_v2(operations : PatientListForSpecialties, baseTitle : str): 
     for op, patients in operations.items():
         title = baseTitle = op
@@ -578,7 +588,8 @@ def PrintWaitingListLineGraph_v2(operations : PatientListForSpecialties, baseTit
             template="plotly_white",
             hovermode='x unified'
         )
-        fig.show()
+        ShowFigure(fig, name=f"WaitingListLineGraph_{op}")
+
 
 def MakeGraphs(data : PatientListForSpecialties ):
     PrintDailyBoxGraph_v2(data, "Distribuzione dei pazienti per " )

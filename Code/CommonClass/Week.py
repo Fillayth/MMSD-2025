@@ -34,6 +34,7 @@ class Week:
     #region: Funzioni 
     def insertPatient(self, patient: Patient) -> bool:
         for d in self.dailySchedule:
+            patient.opDay = self.weekNum * Settings.week_length_days + d.day.value
             if d.insertPatient(patient=patient):
                 return True
         # se non ritorna true, vuoldire che nella settimana non c'è spazio
