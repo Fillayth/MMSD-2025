@@ -76,6 +76,6 @@ class Settings:
     # Length of a week in days 
     week_length_days = 5    
     # Solver configuration
-    solver = pyo.SolverFactory('cplex_direct')  # Use CPLEX solver
+    solver = pyo.SolverFactory('cplex')  # Use CPLEX solver
     #endregion
 
