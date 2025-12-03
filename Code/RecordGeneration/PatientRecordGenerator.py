@@ -80,7 +80,8 @@ def write_reports(patient_records, weekly_report, seed, project_root) -> tuple[s
             "Specialty",
             "EOT (Estimated Operation Time in minutes)",
             "Day (Day Added to Waiting List)",
-            "MTB (Priority, max waiting days)"
+            "MTB (Priority, max waiting days)",
+            "ROT (Real Operation Time in minutes)"
         ])
         writer.writerows(patient_records)
 
@@ -142,6 +143,7 @@ def generate_csv(
                 estimated_time = generate_time(
                     params['K2'], params['K7'], params['K8'], params['K9'], params['K3']
                 )
+                real_time = round(estimated_time * np.random.uniform(0.8, 1.8), 3)
                 priority = sample_from_distribution(
                     prio_params['distribution'], int, mean=prio_params['mean'], std=prio_params['std']
                 )
@@ -152,7 +154,8 @@ def generate_csv(
                     operation_type,
                     estimated_time,
                     absolute_day,
-                    priority
+                    priority,
+                    real_time
                 ])
                 patient_id += 1
                 used_minutes += estimated_time
