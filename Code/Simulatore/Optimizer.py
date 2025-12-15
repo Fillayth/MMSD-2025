@@ -1,10 +1,12 @@
 import os
+import sys
+
 import pyomo.environ as pyo
 import random
 import csv
 
 from typing import List 
-#sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'CommonClass'))) ## se si crea un file comune in MMSD-2025 che poi orchestra tutte le risorse questo comando non serve 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'CommonClass'))) ## se si crea un file comune in MMSD-2025 che poi orchestra tutte le risorse questo comando non serve
 from CommonClass.Patient import Patient
 from CommonClass.Week import Week
 from settings import Settings
@@ -419,4 +421,151 @@ def optimize_daily_batch_cplex(patients: List[Patient], specialty: str) -> list[
             print(f"Reached the maximum scheduling period for {specialty}. Stopping further scheduling.")
             break
     return result
+#endregion
+
+#region Ottimizzazione giornaliera con ROT e Overflow Time
+
+def execute_week_with_rot(
+    weekly_patients: list[Patient],
+    specialty: str,
+    week_start_day: int,
+    extra_time_pool: float,
+):
+    day_limit = Settings.daily_operation_limit
+    week_days = Settings.week_length_days
+
+    patients = sorted(weekly_patients, key=lambda p: p.eot)
+
+    executed_patients = []
+    overflow_to_next_week = []
+
+    current_day = week_start_day
+    remaining_day_time = day_limit
+
+    for patient in patients:
+        rot = getattr(patient, "rot", patient.eot)
+        eot = patient.eot
+
+        while True:
+            if current_day >= week_start_day + week_days:
+                overflow_to_next_week.append(patient)
+                break
+
+            if rot <= remaining_day_time:
+                remaining_day_time -= rot
+                patient.opDay = current_day
+                executed_patients.append(patient)
+                break
+
+            overflow = rot - remaining_day_time
+            compensable = overflow / 2
+
+            if extra_time_pool > 0 and remaining_day_time > 0:
+                used_extra = min(compensable, extra_time_pool)
+                extra_time_pool -= used_extra
+
+                patient.opDay = current_day
+                executed_patients.append(patient)
+                remaining_day_time = 0
+                break
+
+            current_day += 1
+            remaining_day_time = day_limit
+
+    return executed_patients, overflow_to_next_week, extra_time_pool
+
+#endregion
+
+#region Ottimizzazione settimanale con ROT e Overflow time
+
+def group_daily_with_mtb_logic_rot(
+    ops_dict,
+    weekly_limit=Settings.weekly_operation_limit,
+    week_length_days=Settings.week_length_days,
+    weekly_extra_time=Settings.weekly_extra_time_pool,
+    seed=None,
+):
+    """
+    Same structure as group_daily_with_mtb_logic_optimized, but:
+    - weekly selection uses EOT (unchanged)
+    - daily execution uses ROT + weekly extra-time pool
+    """
+
+    if seed is not None:
+        random.seed(seed)
+
+    final_schedule = {}
+
+    for op_type, patients in ops_dict.items():
+        remaining = sorted(patients, key=lambda p: p.day)
+        week_number = 0
+        final_schedule[op_type] = []
+
+        max_weeks = len(patients) * 2  # safety cap
+
+        while remaining and week_number < max_weeks:
+            week_start_day = week_number * week_length_days
+            week_end_day = week_start_day + week_length_days - 1
+
+            # Patients available for weekly selection (UNCHANGED)
+            weekly_candidates = [p for p in remaining if p.day < week_start_day]
+
+            if not weekly_candidates:
+                final_schedule[op_type].append({
+                    "week": week_number + 1,
+                    "patients": []
+                })
+                week_number += 1
+                continue
+
+            # === WEEKLY SELECTION USING EOT (UNCHANGED LOGIC) ===
+            ordered = sorted(
+                weekly_candidates,
+                key=lambda p: (
+                    -(week_end_day - p.day >= p.mtb),  # overdue first
+                    p.day
+                )
+            )
+
+            weekly_eot_sum = 0
+            weekly_selected = []
+
+            for p in ordered:
+                if weekly_eot_sum + p.eot <= weekly_limit:
+                    weekly_selected.append(p)
+                    weekly_eot_sum += p.eot
+
+            if not weekly_selected:
+                week_number += 1
+                continue
+
+            # === DAILY EXECUTION USING ROT ===
+            executed, overflow, remaining_extra = execute_week_with_rot(
+                weekly_patients=weekly_selected,
+                specialty=op_type,
+                week_start_day=week_start_day,
+                extra_time_pool=weekly_extra_time,
+            )
+
+            # Record executed patients
+            final_schedule[op_type].append({
+                "week": week_number + 1,
+                "patients": executed,
+                "extra_time_left": round(remaining_extra, 2),
+            })
+
+            # Remove executed patients
+            executed_ids = {p.id for p in executed}
+            remaining = [p for p in remaining if p.id not in executed_ids]
+
+            # Overflow patients go to next week (already still in remaining)
+            week_number += 1
+
+        if week_number >= max_weeks and remaining:
+            raise RuntimeError(
+                f"ROT scheduling aborted for {op_type}: still {len(remaining)} patients unscheduled."
+            )
+
+    return final_schedule
+
 #endregion

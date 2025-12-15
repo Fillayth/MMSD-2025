@@ -3,7 +3,9 @@ import json
 import sys
 import os
 import random
-from typing import List 
+from typing import List
+
+
 
 if os.path.basename(__file__) != "main.py":
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'Code')))
@@ -12,6 +14,7 @@ from CommonClass.PatientListForSpecialties import PatientListForSpecialties
 from CommonClass.Week import Week
 from settings import Settings
 from Simulatore.Optimizer import group_weekly_with_mtb_logic_optimized, optimize_daily_batch_cplex as opt_daily
+from Simulatore.Optimizer import execute_week_with_rot
 
 # Reads the CSV file and organizes patient data by operation type
 def read_and_split_by_operation_with_metadata(csv_file) :
@@ -23,12 +26,17 @@ def read_and_split_by_operation_with_metadata(csv_file) :
             if specialty not in result:
                 result[specialty] = []
                 continue
-            result[specialty].append(Patient(
+            p = Patient(
                 id=int(row["Patient ID"]),
                 eot=float(row["EOT (Estimated Operation Time in minutes)"]),
                 day=int(row["Day (Day Added to Waiting List)"]),
                 mtb=int(row["MTB (Priority, max waiting days)"])
-            ))
+            )
+
+            # Attach ROT dynamically (no class change required)
+            p.rot = float(row["ROT (Real Operation Time in minutes)"])
+
+            result[specialty].append(p)
 
     return result
 
@@ -88,6 +96,87 @@ def group_daily_with_mtb_logic_optimized(
         result[op_type] = opt_daily(patients, op_type)
         # print(f"Completed scheduling for specialty: {op_type}")
     return result
+
+#region Organizzazione giornaliera con ROT
+
+def group_daily_with_mtb_logic_rot(
+    ops_dict: PatientListForSpecialties,
+) -> PatientListForSpecialties:
+
+
+    result = PatientListForSpecialties()
+    day_for_week = Settings.week_length_days
+    start_week = Settings.start_week_scheduling
+
+    for op_type, patients in ops_dict.items():
+        # sort patients by arrival day
+        patient_list = sorted(patients, key=lambda p: p.day)
+        remaining = patient_list.copy()
+
+        scheduled: List[Patient] = []
+        week_num = start_week
+
+        # safeguard
+        max_weeks = len(patients) * 2
+
+        while remaining and week_num < max_weeks:
+            week_start_day = week_num * day_for_week
+            week_end_day = week_start_day + day_for_week - 1
+
+            # === SAME weekly availability rule as before ===
+            weekly_candidates = [p for p in remaining if p.day < week_start_day]
+
+            if not weekly_candidates:
+                week_num += 1
+                continue
+
+            # === SAME urgency logic ===
+            ordered = sorted(
+                weekly_candidates,
+                key=lambda p: (
+                    -(week_end_day - p.day >= p.mtb),  # overdue first
+                    p.day + p.mtb
+                )
+            )
+
+            # === SAME weekly capacity rule (EOT-based) ===
+            weekly_selected = []
+            weekly_time = 0
+
+            for p in ordered:
+                if weekly_time + p.eot <= Settings.weekly_operation_limit:
+                    weekly_selected.append(p)
+                    weekly_time += p.eot
+
+            if not weekly_selected:
+                week_num += 1
+                continue
+
+            # === ROT-BASED DAILY EXECUTION ===
+            executed, overflow, _ = execute_week_with_rot(
+                weekly_patients=weekly_selected,
+                specialty=op_type,
+                week_start_day=week_start_day,
+                extra_time_pool=Settings.weekly_extra_time_pool,
+            )
+
+            # record results
+            scheduled.extend(executed)
+
+            executed_ids = {p.id for p in executed}
+            remaining = [p for p in remaining if p.id not in executed_ids]
+
+            # overflow patients stay in remaining automatically
+            week_num += 1
+
+        result[op_type] = scheduled
+
+    return result
+
+#endregion
+
+
+
    
 def export_json_schedule(data, filepath, filename="weekly_schedule.json") -> str:
     if not os.path.exists(filepath):
