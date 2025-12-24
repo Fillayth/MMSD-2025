@@ -3,9 +3,7 @@ import json
 import sys
 import os
 import random
-from typing import List
-
-
+from typing import List 
 
 if os.path.basename(__file__) != "main.py":
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'Code')))
@@ -26,17 +24,12 @@ def read_and_split_by_operation_with_metadata(csv_file) :
             if specialty not in result:
                 result[specialty] = []
                 continue
-            p = Patient(
+            result[specialty].append(Patient(
                 id=int(row["Patient ID"]),
                 eot=float(row["EOT (Estimated Operation Time in minutes)"]),
                 day=int(row["Day (Day Added to Waiting List)"]),
                 mtb=int(row["MTB (Priority, max waiting days)"])
-            )
-
-            # Attach ROT dynamically (no class change required)
-            p.rot = float(row["ROT (Real Operation Time in minutes)"])
-
-            result[specialty].append(p)
+            ))
 
     return result
 
@@ -187,10 +180,11 @@ def export_json_schedule(data, filepath, filename="weekly_schedule.json") -> str
     print(f"JSON exported to {file}")
     return file
 
-def ExportCSVResults(data: PatientListForSpecialties):
+def ExportCSVResults(data: PatientListForSpecialties, folderPath: str = "./Data/"):
     for op, values in data.items():
-        
-        filename = Settings.results_filepath + Settings.results_filename
+        if not os.path.exists(folderPath + Settings.resultsData_folder):
+            os.makedirs(folderPath + Settings.resultsData_folder)
+        filename = Settings.resultsData_folder + Settings.results_filename
         with open(filename, mode='a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(["Seed","Patient ID", "EOT", "Day", "MTB", "Workstation", "Overdue", "Scheduled Day"])
@@ -213,7 +207,7 @@ def ExportCSVAnalysisResults(schedule: PatientListForSpecialties, dirPath: str):
         week_length = Settings.week_length_days
         for specialty, all_patients in schedule.items():
             #calcolo l'ultimo giorno dell'ultima settimana in base all'ultimo giorno di operazione dei pazienti
-            end_weeks = max((pday for p in all_patients), default=0) // week_length + 1
+            end_weeks = max((p.day for p in all_patients), default=0) // week_length + 1
             # ciclo per ogni settimana
             for week_num in range(start_week, end_weeks + 1):
                 # seleziono i pazienti che sono arrivati entro la fine della settimana corrente

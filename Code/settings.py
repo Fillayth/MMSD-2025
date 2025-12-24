@@ -21,6 +21,9 @@ class Settings:
         if Settings.seed is None:
             Settings.seed = int(time.time() * 1000) % (2**32 - 1)
         return Settings.seed
+
+    show_graphs = True  # Whether to display graphs after generation
+
     #endregion
      
     #region CSV Patient Generation Settings
@@ -61,10 +64,12 @@ class Settings:
 
     #endregion
 
-    #region CSV Results Settings
-    results_filepath = "./Data/"
+    #region Results Settings
+    resultsData_folder = "./Data/"
     
     results_filename = "Results.csv"
+    
+    images_folder = "./Images/"
     #endregion
 
     #region Optimization Settings

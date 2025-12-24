@@ -151,7 +151,7 @@ def indice_massimo_inferiore(lst, x):
 
 
 def scrivi_csv_incrementale(data, nome_file = "model_results.csv"):
-    filepath = Settings.results_filepath 
+    filepath = Settings.resultsData_folder 
     output_path = os.path.join(filepath, nome_file)
     with open(output_path, mode='a', newline='') as file:
         writer = csv.writer(file)        

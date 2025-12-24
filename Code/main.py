@@ -1,6 +1,6 @@
 import os
 
-from Grafici.Graph import MakeGraphs
+from Grafici.Graph import Graphs
 from RecordGeneration.PatientRecordGenerator import generate_csv
 from settings import Settings
 from Simulatore.Simulation import group_daily_with_mtb_logic_rot, group_daily_with_mtb_logic_optimized, read_and_split_by_operation_with_metadata, group_daily_with_mtb_logic, export_json_schedule, ExportCSVResults, ExportCSVAnalysisResults
@@ -34,7 +34,7 @@ def main():
         filepath=project_root
     )
 
-    project_root = os.path.dirname(os.path.abspath(paths[0]))
+    resultsData_folder = os.path.dirname(os.path.abspath(paths[0]))
 
     all_patient_records = read_and_split_by_operation_with_metadata(paths[0])
 
@@ -46,16 +46,12 @@ def main():
         print("Si ripiega sulla versione non ottimizzata.")
 
         schedule = group_daily_with_mtb_logic(all_patient_records) #mi sono finite le licenze di cplex
-
-
-    # schedule = group_daily_with_mtb_logic(all_patient_records) #mi sono finite le licenze di cplex
     
-    scheduleJson_path = export_json_schedule(schedule.to_dict(), project_root)
-    
+    scheduleJson_path = export_json_schedule(schedule.to_dict(), resultsData_folder)
     # caricare alla fine delle schedulazioni tutti i risultati e gestire in qualche modo la visualizzazione 
     
-    MakeGraphs(schedule)
-    #ExportCSVResults(schedule)
+    Graphs(f"{resultsData_folder}{Settings.images_folder}").MakeGraphs(schedule)
+    ExportCSVResults(schedule)
     ExportCSVAnalysisResults(schedule, project_root)
 
 
