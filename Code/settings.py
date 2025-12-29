@@ -22,7 +22,7 @@ class Settings:
             Settings.seed = int(time.time() * 1000) % (2**32 - 1)
         return Settings.seed
 
-    show_graphs = True  # Whether to display graphs after generation
+    #show_graphs = True  # Whether to display graphs after generation
 
     #endregion
      

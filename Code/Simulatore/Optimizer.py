@@ -1,4 +1,5 @@
 import os
+from pyexpat import model
 import sys
 
 import pyomo.environ as pyo
@@ -14,6 +15,137 @@ from settings import Settings
 #region Funzioni di supporto
 limited_ids = False
 max_pat_len = 1000 # a causa dei limiti della licenza del solver
+
+def PyomoModel(newPatientsList: list[Patient], operatingRoom_count: int, startTime: int) -> pyo.ConcreteModel:
+    '''
+    funzione per gestire il model in modo dinamico rimuovendo i giorni già passati e aggiungendo i nuovi pazienti
+    in questo modo si evita di dover ricreare il modello ogni volta
+
+    serve aggiungere anche un limite per il numero di pazienti gestibili a causa dei limiti della licenza del solver
+    attualmente il limite è di 70 pazienti per volta
+
+    argomenti:
+    - newPatientsList: lista di nuovi pazienti da aggiungere al modello
+    - operatingRoom_count: numero di sale operatorie disponibili per la specialità
+    - startTime: giorno di inizio della settimana (0-4) 5 giorni lavorativi
+    - model: modello pyomo esistente (se non esiste viene creato uno nuovo/ se esiste viene aggiornato rimuovendo i giorni passati e i pazienti assegnati e aggiungendo i nuovi pazienti)
+    return model con i nuovi pazienti e i giorni aggiornati 
+    '''
+
+    if not newPatientsList or len(newPatientsList) == 0:
+        return None
+
+    bigM = 10000  # grande abbastanza
+    safety_factor = 0.20  # 20% riduzione capacità quando extra critici
+    max_day_for_week = Settings.week_length_days
+    max_worktime_for_day = Settings.daily_operation_limit
+    weekly_extra_time_pool = Settings.weekly_extra_time_pool
+
+    newPatientsList = sorted(newPatientsList, key = lambda p: p.id)
+    
+    #regola: il paziente viene selezionato solo una volta
+    def patient_once(model, i):
+        return sum(model.ORs[i, t, k] for t in model.T for k in model.K )<= 1
+        # return sum(model.ORs[i, t, k] for k in model.K for t in model.T )<= 1
+    #regola: il tempo massimo per una sessione nella sala operatoria non deve essere superato
+    def time_rule(model, t, k):
+        #print(f"Max worktime for day {t}, room {k}: {pyo.value(model.s[t, k])} minutes | Total assigned time: {sum(model.ORs[i, t, k] * model.eot[i] for i in model.I)} minutes \n")
+        return sum( model.ORs[i, t, k] * model.eot[i] for i in model.I) <= model.s[t, k]
+    #regla: vincolo sul tempo massimo utilizzabile in una sala operatoria in un giorno
+    def OR_time_limit(model, t, k):
+        planned = sum(model.eot[i] * model.ORs[i, t, k] for i in model.I)
+        return planned <= model.s[t, k] # .effective_s[t, k] + model.extra_used[t]
+    #regola: Tempo reale utilizzato per giorno e sala
+    def real_time_rule(model, t, k):
+        return model.real_time[t, k] == sum(model.rot[i] * model.ORs[i, t, k] for i in model.I)
+    #regola: Overload: quanto il ROT eccede la capacità base s[t,k]
+    def overload_rule(m, t, k):
+        # overload >= real_time - s, ma non può essere negativo
+        return m.overload[t, k] >= m.real_time[t, k] - m.s[t, k]
+    #regola: Extra giornaliero deve coprire la somma degli overload delle sale
+    def extra_consumption_rule(m, t):
+        return m.extra_used[t] >= sum(m.overload[t, k] for k in m.K)
+    #regola:  Limite settimanale di extra usato
+    def weekly_extra_limit_rule(m):
+        return sum(m.extra_used[t] for t in m.T) <= m.extra
+
+    #regola: Calcolo del consumo totale di extra time usato nella settimana
+    def total_extra_used(model):
+        return model.extra_used_week == sum(model.extra_used[t] for t in model.T)
+    #regola: attivazione del trigger per gli extra critici
+    def extra_critical_trigger(model):
+        return model.extra_used_week - 0.5 * model.extra <= bigM * model.extra_critical
+    #regola: calcolo dinamico della capacità effettiva giornaliera
+    def effective_capacity(model, t, k):
+       return model.effective_s[t, k] == model.s[t, k] - model.safety_factor * model.s[t, k] * model.extra_critical
+
+    ##obiettivo: il tenpo di attesa dr+mdb-t deve essere il minore possibile 
+    #obiettivo: massimizzare l'occupazione delle sale operatorie ORs
+    def objective_rule_M1(model):
+        return sum(model.ORs[i, t, k] for i in model.I for t in model.T for k in model.K )        
+    
+
+
+    model = pyo.ConcreteModel()
+    model.I = pyo.Set(initialize = range(len(newPatientsList))) #set pazienti
+    model.T = pyo.Set(initialize = range(startTime, startTime + max_day_for_week)) #set sale operatorie 
+    model.K = pyo.Set(initialize = range(1, operatingRoom_count+1)) #set sale operatorie 
+
+    model.id_p = pyo.Param(model.I, initialize={i: newPatientsList[i].id  for i in range(len(newPatientsList))})
+    model.dr   = pyo.Param(model.I, initialize={i: newPatientsList[i].day for i in range(len(newPatientsList))})
+    model.mtb  = pyo.Param(model.I, initialize={i: newPatientsList[i].mtb for i in range(len(newPatientsList))})
+    model.eot  = pyo.Param(model.I, initialize={i: newPatientsList[i].eot for i in range(len(newPatientsList))})
+    model.rot  = pyo.Param(model.I, initialize={i: newPatientsList[i].rot for i in range(len(newPatientsList))})
+
+
+    model.s = pyo.Param(model.T, model.K, initialize = max_worktime_for_day) #set tempo massimo per sala operatoria
+    model.ORs = pyo.Var(model.I, model.T, model.K, domain=pyo.Binary )  #variabile binaria di assegnazione pazienti a sale operatorie e giorni
+    
+    # Extra settimanale disponibile
+    model.extra = pyo.Param(initialize=weekly_extra_time_pool)
+    # Variabile binaria che indica se siamo oltre metà degli extra
+    model.extra_critical = pyo.Var(domain=pyo.Binary)
+    # Capacità effettiva giornaliera (dinamica)
+    model.effective_s = pyo.Var(model.T, model.K, domain=pyo.NonNegativeReals)
+    # Fattore di sicurezza da applicare quando gli extra sono oltre metà
+    model.safety_factor = pyo.Param(initialize=safety_factor)  # 20% riduzione capacità
+    # Straordinario usato per ciascun giorno
+    model.extra_used = pyo.Var(model.T, domain=pyo.NonNegativeReals)
+    # Tempo reale giornaliero per sala
+    model.real_time = pyo.Var(model.T, model.K, domain=pyo.NonNegativeReals)
+    # Overload (quanto il ROT eccede la capacità base s per sala e giorno)
+    model.overload = pyo.Var(model.T, model.K, domain=pyo.NonNegativeReals)
+    # Totale extra usato nella settimana
+    model.extra_used_week = pyo.Var(domain=pyo.NonNegativeReals)
+
+
+
+    #regola: il paziente viene selezionato solo una volta
+    model.rule_patient_once = pyo.Constraint(model.I, rule = patient_once)
+    #regola: il tempo massimo per una sessione nella sala operatoria non deve essere superato
+    # model.rule_max_ORs_time = pyo.Constraint(model.T, model.K, rule = time_rule)
+    #regla: vincolo sul tempo massimo utilizzabile in una sala operatoria in un giorno
+    model.OR_time_limit = pyo.Constraint(model.T, model.K, rule=OR_time_limit)
+    #regola: Tempo reale utilizzato per giorno e sala
+    model.real_time_rule = pyo.Constraint(model.T, model.K, rule=real_time_rule)
+    #regola: Overload: quanto il ROT eccede la capacità base s[t,k]
+    model.overload_rule = pyo.Constraint(model.T, model.K, rule=overload_rule)
+    #regola: Extra giornaliero deve coprire la somma degli overload delle sale
+    model.extra_consumption_rule = pyo.Constraint(model.T, rule=extra_consumption_rule)
+    #regola:  Limite settimanale di extra usato
+    model.weekly_extra_limit = pyo.Constraint(rule=weekly_extra_limit_rule)
+    #regola: Calcolo del consumo totale di extra time usato nella settimana
+    model.total_extra_used = pyo.Constraint(rule=total_extra_used)
+    #regola: attivazione del trigger per gli extra critici
+    model.extra_critical_trigger = pyo.Constraint(rule=extra_critical_trigger)
+    #regola: calcolo dinamico della capacità effettiva giornaliera
+    model.effective_capacity = pyo.Constraint(model.T, model.K, rule=effective_capacity)
+
+    ##obiettivo: il tenpo di attesa dr+mdb-t deve essere il minore possibile 
+    #obiettivo: massimizzare l'occupazione delle sale operatorie ORs
+    model.Objective = pyo.Objective(rule=objective_rule_M1, sense=pyo.maximize)
+    return model
+
 
 def CreatePyomoModel(newPatientsList: list[Patient], operatingRoom_count: int, startTime: int, model: pyo.ConcreteModel = None) -> pyo.ConcreteModel:
     '''
@@ -66,6 +198,7 @@ def CreatePyomoModel(newPatientsList: list[Patient], operatingRoom_count: int, s
         model.eot = pyo.Param(model.I, initialize=[p.eot for p in newPatientsList]) #set estimated operation time pazienti
 
         model.s = pyo.Param(model.T, model.K, initialize = max_worktime_for_day) #set tempo massimo per sala operatoria
+        model.extra_used_week = pyo.Var(domain=pyo.NonNegativeReals)
         model.ORs = pyo.Var(model.I, model.T, model.K, domain=pyo.Binary )  #variabile binaria di assegnazione pazienti a sale operatorie e giorni
 
         #regola: il paziente viene selezionato solo una volta
@@ -149,7 +282,6 @@ def indice_massimo_inferiore(lst, x):
             return i
     return None
 
-
 def scrivi_csv_incrementale(data, nome_file = "model_results.csv"):
     filepath = Settings.resultsData_folder 
     output_path = os.path.join(filepath, nome_file)
@@ -160,7 +292,6 @@ def scrivi_csv_incrementale(data, nome_file = "model_results.csv"):
             writer.writerow(['indice_i', 'id_i', 'w', 'd', 'day', 'mtb', 'accettato'])
         for a, b, c, d, e, f, g in data :
             writer.writerow([a, b, c, d, e, f, g])
-
 
 #endregion
 
@@ -382,6 +513,7 @@ def optimize_daily_batch_cplex(patients: List[Patient], specialty: str) -> list[
     """
     Ottimizza l'assegnazione dei pazienti alle sale operatorie e ai giorni della settimana,
     popolando un oggetto Week tramite insertPatient.
+    Return: restituisce tutta la lista dei pazienti schedulati giornalmente in piu settimane
     """
     patient_list = sorted(patients, key=lambda p: p.day)
     day_for_week = Settings.week_length_days #giorni lavorativi a settimana
@@ -393,7 +525,8 @@ def optimize_daily_batch_cplex(patients: List[Patient], specialty: str) -> list[
     result = []
     while len(weekly_patients) > 0:
         print(f"Scheduling for {specialty}, Week starting day {current_day}")
-        current_model = CreatePyomoModel(weekly_patients, operating_rooms, current_day, None)
+        current_model = PyomoModel(weekly_patients, operating_rooms, current_day)
+        # current_model = CreatePyomoModel(weekly_patients, operating_rooms, current_day, None)
         #run solver
         Settings.solver.solve(current_model, tee=Settings.solver_tee)
         if False: #debug
@@ -412,6 +545,7 @@ def optimize_daily_batch_cplex(patients: List[Patient], specialty: str) -> list[
             eot = current_model.eot[i],
             day = current_model.dr[i],
             mtb = current_model.mtb[i],
+            rot = patients[[p.id for p in patients].index(current_model.id_p[i])].rot,
             opDay= t,
             workstation= k,
             overdue=False)
@@ -443,7 +577,7 @@ def execute_week_with_rot(
     remaining_day_time = day_limit
 
     for patient in patients:
-        rot = getattr(patient, "rot", patient.eot)
+        rot = patient.rot # getattr(patient, "rot", patient.eot)
         eot = patient.eot
 
         while True:
@@ -473,6 +607,54 @@ def execute_week_with_rot(
             remaining_day_time = day_limit
 
     return executed_patients, overflow_to_next_week, extra_time_pool
+
+def optimize_daily_batch_rot(patients: List[Patient], specialty: str) ->list[Patient]:
+    """ 
+    Utilizza il modello cplex per impostare secondo i tempi eot la scheduazione settimanale 
+    e sulla soluzione del modello viene applicata la logica sul ROT che esclude i pazienti che 
+    non sono stati operati a fine settimana e li rimanda alla settimana successiva
+    """
+    patient_list = sorted(patients, key=lambda p: p.day)
+    day_for_week = Settings.week_length_days #giorni lavorativi a settimana
+    day_start = Settings.start_week_scheduling * day_for_week #inizio settimana lavorativa
+    operating_rooms = Settings.workstations_config[specialty] #sale operatorie per specialità
+    current_day = day_start
+    weekly_patients = [p for p in patient_list if p.day < current_day] #lista di pazienti da schedulare nella settimana
+    result = {specialty: {
+        "patients": [], 
+        "overflow": [],
+        "extra_time_left": []
+    }}
+    while len(weekly_patients) > 0:
+        print(f"Scheduling for {specialty}, Week starting day {current_day}")
+        #ottimizzazione settimanale con cplex sui tempi EOT
+        # è da ottimizzare perche molte operazioni vengono ripetute in optimize_daily_batch_cplex
+        solver_results = optimize_daily_batch_cplex(weekly_patients, operating_rooms) 
+        # filtro i risultati per ottenere solo i pazienti schedulati nella prima settimana 
+        weekly_scheduled = [p for p in solver_results if current_day <= p.opDay < current_day + day_for_week]
+        #applico la logica sul ROT e overflow time
+        executed, overflow, extra_time_pool = execute_week_with_rot(
+            weekly_patients=weekly_scheduled,
+            specialty=specialty,
+            week_start_day=current_day,
+            extra_time_pool=Settings.weekly_extra_time_pool,
+        )
+        #aggiorno la lista dei pazienti settimanali 
+        current_day += day_for_week
+        weekly_patients.extend([p for p in patient_list if current_day - day_for_week <= p.day < current_day and p not in weekly_patients])
+        # rimuovo i pazienti eseguiti dalla lista settimanale e aggiungo i nuovi pazieni 
+        weekly_patients = [p for p in weekly_patients if p.id not in [ep.id for ep in executed]]
+         
+        #salvo i risultati della settimana
+        result[specialty]["patients"].extend(executed)
+        result[specialty]["overflow"].append(overflow)
+        result[specialty]["extra_time_left"].append(extra_time_pool)
+        #controllo per evitare loop infiniti
+        if current_day > day_start + (Settings.weeks_to_fill + 2) * day_for_week:
+            print(f"Reached the maximum scheduling period for {specialty}. Stopping further scheduling.")
+            break
+    return result
+
 
 #endregion
 

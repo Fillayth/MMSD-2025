@@ -12,7 +12,7 @@ from CommonClass.PatientListForSpecialties import PatientListForSpecialties
 from CommonClass.Week import Week
 from settings import Settings
 from Simulatore.Optimizer import group_weekly_with_mtb_logic_optimized, optimize_daily_batch_cplex as opt_daily
-from Simulatore.Optimizer import execute_week_with_rot
+from Simulatore.Optimizer import execute_week_with_rot, optimize_daily_batch_rot
 
 # Reads the CSV file and organizes patient data by operation type
 def read_and_split_by_operation_with_metadata(csv_file) :
@@ -23,12 +23,14 @@ def read_and_split_by_operation_with_metadata(csv_file) :
             specialty = row["Specialty"]
             if specialty not in result:
                 result[specialty] = []
-                continue
+                #continue
             result[specialty].append(Patient(
                 id=int(row["Patient ID"]),
                 eot=float(row["EOT (Estimated Operation Time in minutes)"]),
                 day=int(row["Day (Day Added to Waiting List)"]),
-                mtb=int(row["MTB (Priority, max waiting days)"])
+                mtb=int(row["MTB (Priority, max waiting days)"]),
+                rot=float(row["ROT (Real Operation Time in minutes)"])
+
             ))
 
     return result
@@ -164,6 +166,32 @@ def group_daily_with_mtb_logic_rot(
 
         result[op_type] = scheduled
 
+    return result
+
+def group_daily_with_mtb_logic_optimized_rot(
+    ops_dict: PatientListForSpecialties,
+) -> PatientListForSpecialties:
+    
+    result = PatientListForSpecialties()
+    overflows = {}
+    extra_times = {}
+    for op_type, patients in ops_dict.items():
+        data = optimize_daily_batch_rot(patients, op_type)
+        result[op_type] = data[op_type]["patients"]
+        overflows[op_type] = data[op_type]["overflow"]
+        extra_times[op_type] = data[op_type]["extra_time_left"]
+    # salvo i dati di overflow e extra time in due file json separati
+    # verifico che la cartella esista
+    if not os.path.exists(f"./Data/Rot/"):
+        os.makedirs(f"./Data/Rot/")
+    # salvo l'extratime
+    with open(f"./Data/Rot/{op_type}_extra_time.json", "w", encoding="utf-8") as f:
+        json.dump(extra_times, f, indent=4)
+    # salvo l'overflow
+    with open(f"./Data/Rot/{op_type}_overflow.json", "w", encoding="utf-8") as f:
+        json.dump(overflows, f, indent=4)
+
+    # print(f"Completed scheduling for specialty: {op_type}")
     return result
 
 #endregion

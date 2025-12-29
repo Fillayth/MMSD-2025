@@ -8,9 +8,10 @@ if os.path.basename(__file__) != "main.py":
 
 @dataclass
 class Patient:
-    def __init__(self, id: int, eot: float, day: int, mtb: int, opDay = -1, workstation: int = -1, overdue: bool = False):
+    def __init__(self, id: int, eot: float, day: int, mtb: int,rot: float = -1, opDay = -1, workstation: int = -1, overdue: bool = False):
         self.id = id
         self.eot = eot
+        self.rot = rot
         self.day = day
         self.mtb = mtb
         self.opDay = opDay
@@ -31,6 +32,7 @@ class Patient:
         return {
             "id": self.id,
             "eot": self.eot,
+            "rot": self.rot,
             "day": self.day,
             "mtb": self.mtb,
             "opDay": self.opDay,
@@ -42,6 +44,7 @@ class Patient:
         return {
             "id": self.id,
             "eot": self.eot,
+            "rot": self.rot,
             "day": self.day,
             "mtb": self.mtb,
             "opDay": self.opDay,
@@ -51,6 +54,6 @@ class Patient:
 
     @classmethod
     def from_dict(cls, data):
-        return cls(data['id'], data['eot'], data['day'], data['mtb'], data['opDay'], data['workstation'], data['overdue'])
+        return cls(data['id'], data['eot'], data['day'], data['mtb'], data['rot'], data['opDay'], data['workstation'], data['overdue'])
     
     #endregion

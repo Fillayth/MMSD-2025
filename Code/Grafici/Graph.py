@@ -20,7 +20,7 @@ from settings import Settings
 
 class Graphs:
     folderPath: str
-
+    ShowFigures: bool = True
     def __init__(self, folderPath: str = os.path.dirname(os.path.abspath(__file__)) + "/Images"):
         if not os.path.exists(folderPath):
             os.makedirs(folderPath) 
@@ -28,7 +28,7 @@ class Graphs:
 
     def ShowFigure(self, fig: go.Figure, name: str = "grafico"):
         fig.write_html(f"{self.folderPath}/{name}.html")
-        if Settings.show_graphs:
+        if self.ShowFigures:
             fig.show()
 
     def BoxPlotUnusedTime(self, weeks: PatientListForSpecialties, title: str):
@@ -128,7 +128,10 @@ class Graphs:
             self.ShowFigure(fig, name=f"WaitingTimeBoxPlot_{op}")
 
     def PrintDailyBoxGraph(self, operation : PatientListForSpecialties, baseTitle : str): 
+        limite_massimo = Settings.daily_operation_limit
+        
         for op, patients in operation.items():
+            xline = Settings.week_length_days * Settings.workstations_config[op]
             title = baseTitle + op
             # estraggo i dati di una operazione dal formato json 
             # inizializzo il grafico
@@ -152,15 +155,19 @@ class Graphs:
                 if start_day in days_title:
                     start_index = days_title.index(start_day)
             for weekNum in range(num_weeks):
-                visible = [False] * num_patients
+                visible = [False] * num_patients * 2  # Due barre per paziente (EOT e ROT)
                 text = f"W:{weekNum}" 
+                # per ogni giorno della settimana inserisco i blocchi dei eot dei pazienti
                 for day in range(weekNum * Settings.week_length_days, (weekNum + 1) * Settings.week_length_days):
                     for room_id in range(Settings.workstations_config[op]):
                         dailyPatients = [p for p in patients if p.workstation == room_id+1 and p.opDay == day]
                         mins = round(sum(p.eot for p in dailyPatients), 2)
+                        minsRot = round(sum(p.rot for p in dailyPatients), 2)
                         for p in dailyPatients:
+                            xtext = f"{text}|D:{day}|OR:{room_id+1}|<br>ToTMin:{mins}|<br>RoTMin:{minsRot}"
+                            #inserisco il blocco eot del paziente
                             fig.add_trace(go.Bar(
-                                x=[text + f"|OR:{room_id+1}|D:{day}|ToTMin:{mins}"],
+                                x=[xtext],
                                 y=[p.eot],
                                 name=f"Patient {p.id}",
                                 hoverinfo="text",
@@ -169,10 +176,27 @@ class Graphs:
                                 marker=dict(color=color_map_progressive[p.id]),
                                 cliponaxis=True,
                                 textposition='inside',
+                                offsetgroup="front",
+                                visible=(weekNum == Settings.start_week_scheduling)
+                            ))
+                            # aggiungo il blocco in trasparenza dei rot dei pazienti dietro i blocchi eot
+                            fig.add_trace(go.Bar(
+                                x=[xtext],
+                                y=[p.rot],
+                                name=f"Patient {p.id} ROT",
+                                hoverinfo="text",
+                                text=[f"Patient {p.id} ROT: {int(p.rot)}m {int((p.rot % 1) * 60)}s"],
+                                hovertemplate=f'D:{p.day}|MTB:{p.mtb}<extra></extra>',
+                                marker=dict(color=color_map_progressive[p.id], opacity=0.3),
+                                cliponaxis=True,
+                                textposition='inside',
+                                offsetgroup="back",
+                                offset=-0.2,
                                 visible=(weekNum == Settings.start_week_scheduling)
                             ))
                             visible[i] = True
-                            i += 1
+                            visible[i + 1] = True
+                            i += 2
                 buttons.append(dict(
                     label=f"Settimana {weekNum}",
                     method="update",
@@ -180,15 +204,31 @@ class Graphs:
                             {"title": title}]
                         #   {"title": f"{title} - Settimana {week.weekNum}"}]
                 ))
-            # Aggiungo la linea del limite massimo
-            limite_massimo = Settings.daily_operation_limit
-            xline = Settings.week_length_days * Settings.workstations_config[op]
+                # nel loop per ogni giorno aggiungo una linea del supplemento al limite massimo che diminuisce man mano che la somma dei rot giornaliera supera
+                # il limite massimo
+                extra_time_pool = Settings.weekly_extra_time_pool
+                limite_massimo_extra = limite_massimo + (extra_time_pool / Settings.week_length_days / Settings.workstations_config[op])
+                fig.add_shape(
+                    type="line",
+                    # Estendo la linea solo sull'asse X per le colonne del giorno su tutte le room 
+                    x0=-0.5, x1=xline - 0.5,
+                    y0=limite_massimo_extra, y1=limite_massimo_extra,
+                    line=dict(color="green", width=2, dash="dash"),
+                )
+                # fig.update_xaxes(showticklabels=True)
+                # fig.update_traces(showlegend=True, selector=dict(offsetgroup="front"))
+                # fig.update_traces(showlegend=False, selector=dict(offsetgroup="back"))
+            fig.update_layout(barmode="overlay")
+            fig.update_xaxes(showticklabels=True)
+            fig.update_traces(showlegend=False, hoverinfo="skip", selector=dict(offsetgroup="back"))
+            # Aggiungo la linea del limite massimo settimanale
             fig.add_shape(
                 type="line",
                 x0=-0.5, x1=xline - 0.5 ,  # Estendo la linea su tutto l'asse X
                 y0=limite_massimo, y1=limite_massimo,
                 line=dict(color="red", width=2, dash="dash"),
             )
+
             fig.add_annotation(
                 x=xline - 1, y=limite_massimo,
                 text=f"{limite_massimo} minuti (limite giornaliero)",
@@ -452,12 +492,13 @@ class Graphs:
             )
             self.ShowFigure(fig, name=f"WaitingListLineGraph_{op}")
 
-    def MakeGraphs(self, data : PatientListForSpecialties):
+    def MakeGraphs(self, data : PatientListForSpecialties, showGraphs: bool = True):
+        self.ShowFigures = showGraphs
         self.PrintDailyBoxGraph(data, "Distribuzione dei pazienti per " )
         self.PrintTrendLineGraph(data, "Andamento tempo occupato per " )
         self.PrintWaitingListLineGraph(data, "Andamento lista d'attesa per ")
         self.PrintWaitingTimeBoxPlotGraph(data, "Tempi di attesa per ")
-        self.BoxPlotUnusedTime(data, "Tempi medi non utilizzati per ")
+        #self.BoxPlotUnusedTime(data, "Tempi medi non utilizzati per ") #utilizza ancora le classi delle settimane per i dati 
 
     # for op in data:
         
