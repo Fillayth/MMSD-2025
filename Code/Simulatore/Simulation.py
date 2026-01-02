@@ -11,7 +11,7 @@ from CommonClass.Patient import Patient
 from CommonClass.PatientListForSpecialties import PatientListForSpecialties
 from CommonClass.Week import Week
 from settings import Settings
-from Simulatore.Optimizer import group_weekly_with_mtb_logic_optimized, optimize_daily_batch_cplex as opt_daily
+from Simulatore.Optimizer import group_weekly_with_mtb_logic_optimized, optimize_daily_batch_cplex
 from Simulatore.Optimizer import execute_week_with_rot, optimize_daily_batch_rot
 
 # Reads the CSV file and organizes patient data by operation type
@@ -88,7 +88,7 @@ def group_daily_with_mtb_logic_optimized(
     
     result = PatientListForSpecialties()
     for op_type, patients in ops_dict.items():
-        result[op_type] = opt_daily(patients, op_type)
+        result[op_type] = optimize_daily_batch_cplex(patients, op_type)
         # print(f"Completed scheduling for specialty: {op_type}")
     return result
 
@@ -189,7 +189,8 @@ def group_daily_with_mtb_logic_optimized_rot(
         json.dump(extra_times, f, indent=4)
     # salvo l'overflow
     with open(f"./Data/Rot/{op_type}_overflow.json", "w", encoding="utf-8") as f:
-        json.dump(overflows, f, indent=4)
+        json.dump(overflows, f, default=lambda o: o.to_dict(), indent=4)
+
 
     # print(f"Completed scheduling for specialty: {op_type}")
     return result

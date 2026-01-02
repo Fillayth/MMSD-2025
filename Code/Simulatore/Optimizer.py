@@ -551,7 +551,7 @@ def optimize_daily_batch_cplex(patients: List[Patient], specialty: str) -> list[
             overdue=False)
             for i in current_model.I for k in current_model.K for t in current_model.T if pyo.value(current_model.ORs[i, t, k])==1])
         #controllo per evitare loop infiniti
-        if current_day > day_start + (Settings.weeks_to_fill + 2) * day_for_week:
+        if current_day > day_start + (Settings.weeks_to_fill + 3) * day_for_week:
             print(f"Reached the maximum scheduling period for {specialty}. Stopping further scheduling.")
             break
     return result
@@ -617,7 +617,7 @@ def optimize_daily_batch_rot(patients: List[Patient], specialty: str) ->list[Pat
     patient_list = sorted(patients, key=lambda p: p.day)
     day_for_week = Settings.week_length_days #giorni lavorativi a settimana
     day_start = Settings.start_week_scheduling * day_for_week #inizio settimana lavorativa
-    operating_rooms = Settings.workstations_config[specialty] #sale operatorie per specialità
+    #operating_rooms = Settings.workstations_config[specialty] #sale operatorie per specialità
     current_day = day_start
     weekly_patients = [p for p in patient_list if p.day < current_day] #lista di pazienti da schedulare nella settimana
     result = {specialty: {
@@ -629,7 +629,7 @@ def optimize_daily_batch_rot(patients: List[Patient], specialty: str) ->list[Pat
         print(f"Scheduling for {specialty}, Week starting day {current_day}")
         #ottimizzazione settimanale con cplex sui tempi EOT
         # è da ottimizzare perche molte operazioni vengono ripetute in optimize_daily_batch_cplex
-        solver_results = optimize_daily_batch_cplex(weekly_patients, operating_rooms) 
+        solver_results = optimize_daily_batch_cplex(weekly_patients, specialty) 
         # filtro i risultati per ottenere solo i pazienti schedulati nella prima settimana 
         weekly_scheduled = [p for p in solver_results if current_day <= p.opDay < current_day + day_for_week]
         #applico la logica sul ROT e overflow time
@@ -650,7 +650,7 @@ def optimize_daily_batch_rot(patients: List[Patient], specialty: str) ->list[Pat
         result[specialty]["overflow"].append(overflow)
         result[specialty]["extra_time_left"].append(extra_time_pool)
         #controllo per evitare loop infiniti
-        if current_day > day_start + (Settings.weeks_to_fill + 2) * day_for_week:
+        if current_day > day_start + (Settings.weeks_to_fill + 3) * day_for_week:
             print(f"Reached the maximum scheduling period for {specialty}. Stopping further scheduling.")
             break
     return result
