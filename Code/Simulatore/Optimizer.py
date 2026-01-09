@@ -434,6 +434,7 @@ def execute_week_with_rot(
     day_limit = Settings.daily_operation_limit
     week_days = Settings.week_length_days
 
+    # shortest EOT first (as specified)
     patients = sorted(weekly_patients, key=lambda p: p.eot)
 
     executed_patients = []
@@ -443,38 +444,73 @@ def execute_week_with_rot(
     remaining_day_time = day_limit
 
     for patient in patients:
-        rot = getattr(patient, "rot", patient.eot)
         eot = patient.eot
+        rot = getattr(patient, "rot", eot)
+        #print(f"eot = {eot}, rot = {rot}")
 
         while True:
+            # --- No more days in this week ---
             if current_day >= week_start_day + week_days:
+                print(
+                    f"[NEXT WEEK] Patient {patient.id} "
+                    f"cannot be scheduled in week starting day {week_start_day}"
+                )
                 overflow_to_next_week.append(patient)
                 break
 
-            if rot <= remaining_day_time:
-                remaining_day_time -= rot
-                patient.opDay = current_day
-                executed_patients.append(patient)
-                break
+            # --- Planning feasibility check (EOT-based) ---
+            if eot > remaining_day_time:
+                print(
+                    f"[NEXT DAY] Patient {patient.id} | "
+                    f"EOT={eot:.2f} > remaining day time={remaining_day_time:.2f}"
+                )
+                current_day += 1
+                remaining_day_time = day_limit
+                continue
 
-            overflow = rot - remaining_day_time
-            compensable = overflow / 2
+            # --- ROT deviation ---
+            delta = rot - eot
+            #print(f"delta = {delta}")
 
-            if extra_time_pool > 0 and remaining_day_time > 0:
-                used_extra = min(compensable, extra_time_pool)
-                extra_time_pool -= used_extra
+            # --- Overflow eligibility ---
+            in_first_half = remaining_day_time >= (day_limit / 2)
 
-                patient.opDay = current_day
-                executed_patients.append(patient)
-                remaining_day_time = 0
-                break
+            if delta > 0 and in_first_half and extra_time_pool > 0:
+                used_overflow = min(delta / 2, extra_time_pool)
 
-            current_day += 1
-            remaining_day_time = day_limit
+                extra_time_pool -= used_overflow
+
+                print(
+                    f"[OVERFLOW USED] Patient {patient.id} | "
+                    f"Day {current_day} | "
+                    f"Day total={day_limit} | "
+                    f"Remaining before={remaining_day_time:.2f} | "
+                    f"ROT-EOT={delta:.2f} | "
+                    f"Overflow used={used_overflow:.2f} | "
+                    f"Pool left={extra_time_pool:.2f}"
+                )
+
+            elif delta > 0:
+                # ROT exceeds EOT but overflow not allowed → shift patient
+                print(
+                    f"[NEXT DAY - NO OVERFLOW] Patient {patient.id} | "
+                    f"ROT-EOT={delta:.2f} | "
+                    f"Remaining={remaining_day_time:.2f}"
+                )
+                current_day += 1
+                remaining_day_time = day_limit
+                continue
+
+            # --- Patient executed ---
+            remaining_day_time -= eot
+            patient.opDay = current_day
+            executed_patients.append(patient)
+            break
 
     return executed_patients, overflow_to_next_week, extra_time_pool
 
 #endregion
+
 
 #region Ottimizzazione settimanale con ROT e Overflow time
 
