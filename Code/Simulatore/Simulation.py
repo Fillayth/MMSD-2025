@@ -30,7 +30,6 @@ def read_and_split_by_operation_with_metadata(csv_file) :
                 day=int(row["Day (Day Added to Waiting List)"]),
                 mtb=int(row["MTB (Priority, max waiting days)"]),
                 rot=float(row["ROT (Real Operation Time in minutes)"])
-
             ))
 
     return result
