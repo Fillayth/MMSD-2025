@@ -8,6 +8,7 @@ import csv
 
 from typing import List 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'CommonClass'))) ## se si crea un file comune in MMSD-2025 che poi orchestra tutte le risorse questo comando non serve
+from CommonClass.PatientListForSpecialties import PatientListForSpecialties
 from CommonClass.Patient import Patient
 from CommonClass.Week import Week
 from settings import Settings
@@ -146,124 +147,6 @@ def PyomoModel(newPatientsList: list[Patient], operatingRoom_count: int, startTi
     model.Objective = pyo.Objective(rule=objective_rule_M1, sense=pyo.maximize)
     return model
 
-
-def CreatePyomoModel(newPatientsList: list[Patient], operatingRoom_count: int, startTime: int, model: pyo.ConcreteModel = None) -> pyo.ConcreteModel:
-    '''
-    funzione per gestire il model in modo dinamico rimuovendo i giorni già passati e aggiungendo i nuovi pazienti
-    in questo modo si evita di dover ricreare il modello ogni volta
-
-    serve aggiungere anche un limite per il numero di pazienti gestibili a causa dei limiti della licenza del solver
-    attualmente il limite è di 70 pazienti per volta
-
-    argomenti:
-    - newPatientsList: lista di nuovi pazienti da aggiungere al modello
-    - operatingRoom_count: numero di sale operatorie disponibili per la specialità
-    - startTime: giorno di inizio della settimana (0-4) 5 giorni lavorativi
-    - model: modello pyomo esistente (se non esiste viene creato uno nuovo/ se esiste viene aggiornato rimuovendo i giorni passati e i pazienti assegnati e aggiungendo i nuovi pazienti)
-    return model con i nuovi pazienti e i giorni aggiornati 
-    '''
-    if not newPatientsList or len(newPatientsList) == 0:
-        return model
-    
-    max_day_for_week = Settings.week_length_days
-    max_worktime_for_day = Settings.daily_operation_limit
-
-    newPatientsList = sorted(newPatientsList, key = lambda p: p.id)
-    
-    #regola: il paziente viene selezionato solo una volta
-    def patient_once(model, i):
-        return sum(model.ORs[i, t, k] for k in model.K for t in model.T )<= 1
-    #regola: il tempo massimo per una sessione nella sala operatoria non deve essere superato
-    def time_rule(model, t, k):
-        #print(f"Max worktime for day {t}, room {k}: {pyo.value(model.s[t, k])} minutes | Total assigned time: {sum(model.ORs[i, t, k] * model.eot[i] for i in model.I)} minutes \n")
-
-        return sum( model.ORs[i, t, k] * model.eot[i] for i in model.I) <= model.s[t, k]
-    ##obiettivo: il tenpo di attesa dr+mdb-t deve essere il minore possibile 
-    #obiettivo: massimizzare l'occupazione delle sale operatorie ORs
-    def objective_rule_M1(model):
-        return sum(model.ORs[i, t, k] for i in model.I for t in model.T for k in model.K )        
-
-
-    if model is None:
-        model = pyo.ConcreteModel()
-        if limited_ids and len(newPatientsList) > max_pat_len: 
-            newPatientsList = newPatientsList[:max_pat_len] #limite di 70 pazienti a causa dei limiti della licenza del solver
-        model.I = pyo.Set(initialize = range(len(newPatientsList))) #set pazienti
-        model.T = pyo.Set(initialize = range(startTime, startTime + max_day_for_week)) #set sale operatorie 
-        model.K = pyo.Set(initialize = range(1, operatingRoom_count+1)) #set sale operatorie 
-
-        model.id_p = pyo.Param(model.I, initialize=[p.id for p in newPatientsList]) #set id pazienti 
-        model.dr = pyo.Param(model.I, initialize=[p.day for p in newPatientsList])  #set giorni di arrivo pazienti
-        model.mtb = pyo.Param(model.I, initialize=[p.mtb for p in newPatientsList]) #set giorni massimi di attesa pazienti
-        model.eot = pyo.Param(model.I, initialize=[p.eot for p in newPatientsList]) #set estimated operation time pazienti
-
-        model.s = pyo.Param(model.T, model.K, initialize = max_worktime_for_day) #set tempo massimo per sala operatoria
-        model.extra_used_week = pyo.Var(domain=pyo.NonNegativeReals)
-        model.ORs = pyo.Var(model.I, model.T, model.K, domain=pyo.Binary )  #variabile binaria di assegnazione pazienti a sale operatorie e giorni
-
-        #regola: il paziente viene selezionato solo una volta
-        model.rule_patient_once = pyo.Constraint(model.I, rule = patient_once)
-
-        #regola: il tempo massimo per una sessione nella sala operatoria non deve essere superato
-        model.rule_max_ORs_time = pyo.Constraint(model.T, model.K, rule = time_rule)
-
-        ##obiettivo: il tenpo di attesa dr+mdb-t deve essere il minore possibile 
-        #obiettivo: massimizzare l'occupazione delle sale operatorie ORs
-        model.Objective = pyo.Objective(rule=objective_rule_M1, sense=pyo.maximize)
-        return model
-    else:
-        #verifico che la lista dei nuovi pazienti non contenga pazienti già presenti nel modello se esistono li rimuovo da newPatientsList
-        existing_ids = {pyo.value(model.id_p[i]) for i in model.I}
-        newPatientsList = [p for p in newPatientsList if p.id not in existing_ids]
-        if len(newPatientsList) == 0:
-            return model
-        
-        #creo un nuovo modello con i pazienti I esistenti nel vecchio model e non assegnati e aggiungo i nuovi pazienti tenendo conto del limite di 70 pazienti e del tempo consumato nel modello precedente
-        assigned_ids = {pyo.value(model.id_p[i]) for i in model.I if any(pyo.value(model.ORs[i, t, k])==1 for t in model.T for k in model.K)}
-        unassigned_patients = [Patient(
-            id = model.id_p[i],
-            eot = model.eot[i],
-            day = model.dr[i],
-            mtb = model.mtb[i]) for i in model.I if model.id_p[i] not in assigned_ids]
-        combined_patients = unassigned_patients + newPatientsList
-        combined_patients = sorted(combined_patients, key = lambda p: p.id)
-
-        
-        if limited_ids and len(combined_patients) > max_pat_len:
-                combined_patients = combined_patients[:max_pat_len] #limite di 70 pazienti a causa dei limiti della licenza del solver
-        new_model = pyo.ConcreteModel()
-        new_model.I = pyo.Set(initialize = range(len(combined_patients))) #set pazienti
-        new_model.T = pyo.Set(initialize = range(startTime, startTime + max_day_for_week)) #set sale operatorie 
-        new_model.K = pyo.Set(initialize = range(1, operatingRoom_count+1)) #set sale operatorie
-        new_model.id_p = pyo.Param(new_model.I, initialize=[p.id for p in combined_patients]) #set id pazienti
-        new_model.dr = pyo.Param(new_model.I, initialize=[p.day for p in combined_patients])  #set giorni di arrivo pazienti
-        new_model.mtb = pyo.Param(new_model.I, initialize=[p.mtb for p in combined_patients]) #set giorni massimi di attesa pazienti
-        new_model.eot = pyo.Param(new_model.I, initialize=[p.eot for p in combined_patients]) #set estimated operation time pazienti
-        #adeguo il set tempo massimo per sala operatoria alla situazione del model precedente 
-        # new_model.s[t,k] = max_worktime_for_day - sum(pyo.value(model.ORs[i, t, k]) * pyo.value(model.eot[i]) for i in model.I) if t in model.T and k in model.K else max_worktime_for_day
-        S_value = {}
-        for t in new_model.T:
-            for k in new_model.K:
-                if t in model.T and k in model.K:
-                    used_time = sum(pyo.value(model.ORs[i, t, k]) * pyo.value(model.eot[i]) for i in model.I)
-                    S_value[(t, k)] = max_worktime_for_day - used_time
-                else:
-                    S_value[(t, k)] = max_worktime_for_day
-        # new_model.s = pyo.Var(new_model.T, new_model.K, domain=pyo.NonNegativeReals) #set tempo massimo per sala operatoria
-        def s_init(model, t, k):
-            return S_value[(t, k)]
-        new_model.s = pyo.Param(new_model.T, new_model.K, initialize = s_init)
-            
-
-        # new_model.s = pyo.Param(new_model.T, new_model.K, initialize = S_value)
-
-        new_model.ORs = pyo.Var(new_model.I, new_model.T, new_model.K, domain=pyo.Binary )  #variabile binaria di assegnazione pazienti a sale operatorie e giorni
-        new_model.rule_patient_once = pyo.Constraint(new_model.I, rule = patient_once)
-        new_model.rule_max_ORs_time = pyo.Constraint(new_model.T, new_model.K, rule = time_rule)
-        new_model.Objective = pyo.Objective(rule=objective_rule_M1, sense=pyo.maximize)
-
-        return new_model
-    
 def indice_massimo_inferiore(lst, x):
     '''
     Restituisce l'indice del massimo valore in lst che è strettamente minore di x.
@@ -435,79 +318,6 @@ def group_weekly_with_mtb_logic_optimized(ops_dict, weekly_limit=Settings.weekly
     return grouped_schedule
 #endregion
 
-#region Ottimizzazione giornaliera con Pyomo e CPLEX_Direct
-     
-def optimize_daily_batch_cplex_direct(patients: List[Patient], specialty: str) -> list[Patient]:
-    """
-    Ottimizza l'assegnazione dei pazienti alle sale operatorie e ai giorni della settimana,
-    popolando un oggetto Week tramite insertPatient.
-    """
-    patient_list = sorted(patients, key=lambda p: p.day)
-    day_for_week = Settings.week_length_days #giorni lavorativi a settimana
-    day_start = Settings.start_week_scheduling * day_for_week #inizio settimana lavorativa
-    operating_rooms = Settings.workstations_config[specialty] #sale operatorie per specialità
-    current_day = day_start
-    weekly_patients = [p for p in patient_list if p.day < current_day] #lista di pazienti da schedulare nella settimana
-    current_model = None
-    result = []
-    while len(weekly_patients) > 0:
-        print(f"Scheduling for {specialty}, Week starting day {current_day}")
-        current_model = CreatePyomoModel(weekly_patients, operating_rooms, current_day, current_model)
-        #run solver
-        Settings.solver.solve(current_model, tee=Settings.solver_tee)
-        if False: #debug
-            print("Solver Status:", Settings.solver.status)
-            print("Termination Condition:", Settings.solver.termination_condition)
-            assignazioni = [(i,current_model.id_p[i], k, t, current_model.dr[i], current_model.mtb[i], pyo.value(current_model.ORs[i, t, k])) for i in current_model.I for k in current_model.K for t in current_model.T]
-            scrivi_csv_incrementale(assignazioni, nome_file = f"model_results_{specialty.replace(' ', '_')}.csv")
-        #rimuovo i pazienti assegnati dalla lista settimanale
-        weekly_patients = [p for p in weekly_patients if p.id not in [current_model.id_p[i] for i in current_model.I if any(pyo.value(current_model.ORs[i, t, k])==1 for t in current_model.T for k in current_model.K)]]
-        #stabilisco il giorno di inizio del prossimo ciclo sulla base dei giorni non completamente schedulati
-        #calcolo la media dei tempi delle operazioni della lista dei pazienti schedulati
-        avg_eot = sum(p.eot for p in patient_list if current_day - day_for_week <= p.day < current_day) / max(1, len([p for p in patient_list if current_day - day_for_week <= p.day < current_day]))
-        #inserisco un range di tolleranza per evitare di riutilizzare lo stesso giorno in caso di errori di arrotondamento
-        giorni_non_completamente_schedulati = [
-            t
-            for t in current_model.T
-            for k in current_model.K
-            if pyo.value(current_model.s[t, k]) - avg_eot < any(
-                sum(
-                    pyo.value(current_model.ORs[i, t, k]) * pyo.value(current_model.eot[i])
-                    for i in current_model.I
-                ) < pyo.value(current_model.s[t, k])
-                for k in current_model.K
-            )
-        ]
-        if len(giorni_non_completamente_schedulati) > 0:
-            next_day = min(giorni_non_completamente_schedulati)
-            if next_day > current_day:
-                current_day = next_day
-            else:
-                current_day += day_for_week
-        else:
-            current_day += day_for_week
-        #se non ci sono giorni non completamente schedulati vado alla settimana successiva
-
-        #aggiorno la lista dei pazienti settimanali
-        weekly_patients.extend([p for p in patient_list if current_day - day_for_week <= p.day < current_day and p not in weekly_patients])
-        # regisro i pazienti assegnati nel risultato finale
-        result.extend([Patient(
-            id = current_model.id_p[i],
-            eot = current_model.eot[i],
-            day = current_model.dr[i],
-            mtb = current_model.mtb[i],
-            opDay= t,
-            workstation= k,
-            overdue=False)
-            for i in current_model.I for k in current_model.K for t in current_model.T if pyo.value(current_model.ORs[i, t, k])==1])
-        #controllo per evitare loop infiniti
-        if current_day > day_start + (Settings.weeks_to_fill + 2) * day_for_week:
-            print(f"Reached the maximum scheduling period for {specialty}. Stopping further scheduling.")
-            break
-    return result
-
-#endregion
-
 #region Ottimizzazione giornaliera con Pyomo e CPLEX
 def optimize_daily_batch_cplex(patients: List[Patient], specialty: str) -> list[Patient]:
     """
@@ -524,7 +334,7 @@ def optimize_daily_batch_cplex(patients: List[Patient], specialty: str) -> list[
     current_model = None
     result = []
     while len(weekly_patients) > 0:
-        print(f"Scheduling for {specialty}, Week starting day {current_day}")
+        #print(f"Scheduling for {specialty}, Week starting day {current_day}")
         current_model = PyomoModel(weekly_patients, operating_rooms, current_day)
         # current_model = CreatePyomoModel(weekly_patients, operating_rooms, current_day, None)
         #run solver
@@ -551,13 +361,13 @@ def optimize_daily_batch_cplex(patients: List[Patient], specialty: str) -> list[
             overdue=False)
             for i in current_model.I for k in current_model.K for t in current_model.T if pyo.value(current_model.ORs[i, t, k])==1])
         #controllo per evitare loop infiniti
-        if current_day > day_start + (Settings.weeks_to_fill + 2) * day_for_week:
-            print(f"Reached the maximum scheduling period for {specialty}. Stopping further scheduling.")
+        if current_day > day_start + (Settings.weeks_to_fill + 3) * day_for_week:
+            print(f"Reached the maximum scheduling period for {specialty} and week from {day_start} to {current_day}. Stopping further scheduling.")
             break
     return result
 #endregion
 
-#region Ottimizzazione giornaliera con ROT e Overflow Time
+#region Ottimizzazione con ROT e Overflow Time
 
 def execute_week_with_rot(
     weekly_patients: list[Patient],
@@ -568,6 +378,7 @@ def execute_week_with_rot(
     day_limit = Settings.daily_operation_limit
     week_days = Settings.week_length_days
 
+    # shortest EOT first (as specified)
     patients = sorted(weekly_patients, key=lambda p: p.eot)
 
     executed_patients = []
@@ -577,34 +388,69 @@ def execute_week_with_rot(
     remaining_day_time = day_limit
 
     for patient in patients:
-        rot = getattr(patient, "rot", patient.eot)
         eot = patient.eot
+        # rot = getattr(patient, "rot", eot)
+        rot = patient.rot if patient.rot is not None else eot
+        #print(f"eot = {eot}, rot = {rot}")
 
         while True:
+            # --- No more days in this week ---
             if current_day >= week_start_day + week_days:
+                print(
+                    f"[NEXT WEEK] Patient {patient.id} "
+                    f"cannot be scheduled in week starting day {week_start_day}"
+                )
                 overflow_to_next_week.append(patient)
                 break
 
-            if rot <= remaining_day_time:
-                remaining_day_time -= rot
-                patient.opDay = current_day
-                executed_patients.append(patient)
-                break
+            # --- Planning feasibility check (EOT-based) ---
+            if eot > remaining_day_time:
+                print(
+                    f"[NEXT DAY] Patient {patient.id} | "
+                    f"EOT={eot:.2f} > remaining day time={remaining_day_time:.2f}"
+                )
+                current_day += 1
+                remaining_day_time = day_limit
+                continue
 
-            overflow = rot - remaining_day_time
-            compensable = overflow / 2
+            # --- ROT deviation ---
+            delta = rot - eot
+            #print(f"delta = {delta}")
 
-            if extra_time_pool > 0 and remaining_day_time > 0:
-                used_extra = min(compensable, extra_time_pool)
-                extra_time_pool -= used_extra
+            # --- Overflow eligibility ---
+            in_first_half = remaining_day_time >= (day_limit / 2)
 
-                patient.opDay = current_day
-                executed_patients.append(patient)
-                remaining_day_time = 0
-                break
+            if delta > 0 and in_first_half and extra_time_pool > 0:
+                used_overflow = min(delta / 2, extra_time_pool)
 
-            current_day += 1
-            remaining_day_time = day_limit
+                extra_time_pool -= used_overflow
+
+                print(
+                    f"[OVERFLOW USED] Patient {patient.id} | "
+                    f"Day {current_day} | "
+                    f"Day total={day_limit} | "
+                    f"Remaining before={remaining_day_time:.2f} | "
+                    f"ROT-EOT={delta:.2f} | "
+                    f"Overflow used={used_overflow:.2f} | "
+                    f"Pool left={extra_time_pool:.2f}"
+                )
+
+            elif delta > 0:
+                # ROT exceeds EOT but overflow not allowed → shift patient
+                print(
+                    f"[NEXT DAY - NO OVERFLOW] Patient {patient.id} | "
+                    f"ROT-EOT={delta:.2f} | "
+                    f"Remaining={remaining_day_time:.2f}"
+                )
+                current_day += 1
+                remaining_day_time = day_limit
+                continue
+
+            # --- Patient executed ---
+            remaining_day_time -= eot
+            patient.opDay = current_day
+            executed_patients.append(patient)
+            break
 
     return executed_patients, overflow_to_next_week, extra_time_pool
 
@@ -629,7 +475,7 @@ def optimize_daily_batch_rot(patients: List[Patient], specialty: str) ->list[Pat
         print(f"Scheduling for {specialty}, Week starting day {current_day}")
         #ottimizzazione settimanale con cplex sui tempi EOT
         # è da ottimizzare perche molte operazioni vengono ripetute in optimize_daily_batch_cplex
-        solver_results = optimize_daily_batch_cplex(weekly_patients, operating_rooms) 
+        solver_results = optimize_daily_batch_cplex(weekly_patients, specialty) 
         # filtro i risultati per ottenere solo i pazienti schedulati nella prima settimana 
         weekly_scheduled = [p for p in solver_results if current_day <= p.opDay < current_day + day_for_week]
         #applico la logica sul ROT e overflow time
@@ -654,11 +500,6 @@ def optimize_daily_batch_rot(patients: List[Patient], specialty: str) ->list[Pat
             print(f"Reached the maximum scheduling period for {specialty}. Stopping further scheduling.")
             break
     return result
-
-
-#endregion
-
-#region Ottimizzazione settimanale con ROT e Overflow time
 
 def group_daily_with_mtb_logic_rot(
     ops_dict,
