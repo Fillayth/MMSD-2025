@@ -14,8 +14,6 @@ from CommonClass.Week import Week
 from settings import Settings
 
 #region Funzioni di supporto
-limited_ids = False
-max_pat_len = 1000 # a causa dei limiti della licenza del solver
 
 def PyomoModel(newPatientsList: list[Patient], operatingRoom_count: int, startTime: int) -> pyo.ConcreteModel:
     '''

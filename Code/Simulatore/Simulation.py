@@ -187,8 +187,8 @@ def group_daily_with_mtb_logic_optimized_rot(
     with open(f"./Data/Rot/{op_type}_extra_time.json", "w", encoding="utf-8") as f:
         json.dump(extra_times, f, indent=4)
     # salvo l'overflow
-    # with open(f"./Data/Rot/{op_type}_overflow.json", "w", encoding="utf-8") as f:
-    #     json.dump(overflows, f, indent=4)
+    with open(f"./Data/Rot/{op_type}_overflow.json", "w", encoding="utf-8") as f:
+        json.dump(overflows, f, indent=4)
 
     # print(f"Completed scheduling for specialty: {op_type}")
     return result
@@ -204,10 +204,10 @@ def export_json_schedule(data, filepath, filename="weekly_schedule.json") -> str
     print(f"JSON exported to {file}")
     return file
 
-def ExportCSVResults(data: PatientListForSpecialties, folderPath: str = "./Data/"):
+def ExportCSVResults(data: PatientListForSpecialties):
     for op, values in data.items():
-        if not os.path.exists(folderPath + Settings.resultsData_folder):
-            os.makedirs(folderPath + Settings.resultsData_folder)
+        if not os.path.exists(Settings.resultsData_folder):
+            os.makedirs(Settings.resultsData_folder)
         filename = Settings.resultsData_folder + Settings.results_filename
         with open(filename, mode='a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
