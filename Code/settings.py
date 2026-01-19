@@ -81,7 +81,7 @@ class Settings:
     # Length of a week in days 
     week_length_days = 5
     # Weekly operation time overflow in minutes
-    weekly_extra_time_pool = 1000
+    weekly_extra_time_pool = 600
     # Solver configuration
     solver = pyo.SolverFactory('cplex')  # Use CPLEX solver
     #endregion

@@ -39,15 +39,16 @@ def main():
     all_patient_records = read_and_split_by_operation_with_metadata(paths[0])
 
     if False:
-        try :
-            #schedule = group_daily_with_mtb_logic_optimized(all_patient_records) #togliere il commento per usare la versione precedente
-            schedule = group_daily_with_mtb_logic_optimized_rot(all_patient_records) #togliere il commento per usare la versione precedente
-            #schedule = group_daily_with_mtb_logic_rot(all_patient_records)
-        except Exception as e:
-            print("Errore durante l'ottimizzazione giornaliera:", e)
-            print("Si ripiega sulla versione non ottimizzata.")
+        schedule = group_daily_with_mtb_logic_optimized(all_patient_records) #togliere il commento per usare la versione precedente
 
-            schedule = group_daily_with_mtb_logic(all_patient_records) #mi sono finite le licenze di cplex
+        # try :
+        #     schedule = group_daily_with_mtb_logic_optimized(all_patient_records) #togliere il commento per usare la versione precedente
+        #     #schedule = group_daily_with_mtb_logic_rot(all_patient_records)
+        # except Exception as e:
+        #     print("Errore durante l'ottimizzazione giornaliera:", e)
+        #     print("Si ripiega sulla versione non ottimizzata.")
+
+        #     schedule = group_daily_with_mtb_logic(all_patient_records) #mi sono finite le licenze di cplex
         
         scheduleJson_path = export_json_schedule(schedule.to_dict(), resultsData_folder)
         # caricare alla fine delle schedulazioni tutti i risultati e gestire in qualche modo la visualizzazione 
@@ -55,8 +56,8 @@ def main():
         ExportCSVResults(schedule, "./Data")
         ExportCSVAnalysisResults(schedule, f"{project_root}")
     else:
-
-        schedule = group_daily_with_mtb_logic_rot(all_patient_records)
+        schedule = group_daily_with_mtb_logic_optimized_rot(all_patient_records)
+        # schedule = group_daily_with_mtb_logic_rot(all_patient_records)
         # schedule = group_daily_with_mtb_logic_optimized_rot(all_patient_records)
         scheduleJson_path = export_json_schedule(schedule.to_dict(), resultsData_folder)
         # caricare alla fine delle schedulazioni tutti i risultati e gestire in qualche modo la visualizzazione 

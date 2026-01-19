@@ -147,17 +147,29 @@ class Graphs:
             last_day = max(p.opDay for p in patients)
             num_weeks = (last_day // Settings.week_length_days) + 1
             days_title = [f"Day:{day}" for day in range(num_weeks * Settings.week_length_days)]
-            #calcolo il giorno di inizio della schedulazione
             start_index = 0
+            # Definisco la linea del limite massimo settimanale
+            
+            shape_limite_massimo = []
+            shape_limite_massimo.append(dict(
+                type="line",
+                x0=-0.5, x1=xline - 0.5 ,  # Estendo la linea su tutto l'asse X
+                y0=limite_massimo, y1=limite_massimo,
+                line=dict(color="red", width=2, dash="dash"),
+            ))
+            #calcolo il giorno di inizio della schedulazione
             if Settings.start_week_scheduling >= 1:
                 start_day = f"Day:{(Settings.start_week_scheduling) * Settings.week_length_days}"
                 #trovo l'indice del giorno nell'elenco days_title
                 if start_day in days_title:
                     start_index = days_title.index(start_day)
+            shapes_by_week = {}
             for weekNum in range(num_weeks):
+                extra_time_pool = Settings.weekly_extra_time_pool
                 visible = [False] * num_patients * 2  # Due barre per paziente (EOT e ROT)
                 text = f"W:{weekNum}" 
                 # per ogni giorno della settimana inserisco i blocchi dei eot dei pazienti
+                shapes = []
                 for day in range(weekNum * Settings.week_length_days, (weekNum + 1) * Settings.week_length_days):
                     for room_id in range(Settings.workstations_config[op]):
                         dailyPatients = [p for p in patients if p.workstation == room_id+1 and p.opDay == day]
@@ -197,37 +209,59 @@ class Graphs:
                             visible[i] = True
                             visible[i + 1] = True
                             i += 2
+                
+                    #print(f"Count p : {len([p for p in patients if p.opDay == day])} - Day: {day} - Extra time pool: {extra_time_pool} -  sum rot: {sum(p.rot for p in patients if p.opDay == day)-(limite_massimo * Settings.workstations_config[op])}")
+                    # calcolo il valori x0 e x1 e il valore di y per la linea del tempo extra giornaliero
+                    # i valori x0 e x1 sono calcolati per coprire tutte le room del giorno
+                    dayNumInWeek = day % Settings.week_length_days
+                    x0 = dayNumInWeek * Settings.workstations_config[op] - 0.5
+                    x1 = (dayNumInWeek + 1) * Settings.workstations_config[op] - 0.5
+
+                    # limite_massimo_extra = limite_massimo_extra + (extra_time_pool / Settings.week_length_days / Settings.workstations_config[op])
+                    shapes.append(dict(
+                        type="line",
+                        # Estendo la linea solo sull'asse X per le colonne del giorno su tutte le room 
+                        x0=x0, x1=x1,
+                        y0=limite_massimo + extra_time_pool, y1=limite_massimo + extra_time_pool,
+                        line=dict(color="green", width=2, dash="dash"),
+                        #visible=(weekNum == Settings.start_week_scheduling)
+                    ))
+                    val = (extra_time_pool + (limite_massimo * Settings.workstations_config[op])) - sum(p.rot for p in patients if p.opDay == day)
+                    extra_time_pool = val if val >= 0 else 0
+                    # fig.add_shape(
+                    #     type="line",
+                    #     # Estendo la linea solo sull'asse X per le colonne del giorno su tutte le room 
+                    #     x0=x0, x1=x1,
+                    #     y0=limite_massimo + extra_time_pool, y1=limite_massimo + extra_time_pool,
+                    #     line=dict(color="green", width=2, dash="dash"),
+                    #     visible=(weekNum == Settings.start_week_scheduling)
+                    # )
+                shapes_by_week[weekNum] = shapes
                 buttons.append(dict(
                     label=f"Settimana {weekNum}",
                     method="update",
                     args=[{"visible": visible},
-                            {"title": title}]
+                            {
+                                "title": title,
+                                "shapes": shape_limite_massimo + shapes_by_week[weekNum]
+                                }
+                            ]
                         #   {"title": f"{title} - Settimana {week.weekNum}"}]
                 ))
-                # nel loop per ogni giorno aggiungo una linea del supplemento al limite massimo che diminuisce man mano che la somma dei rot giornaliera supera
-                # il limite massimo
-                extra_time_pool = Settings.weekly_extra_time_pool
-                limite_massimo_extra = limite_massimo + (extra_time_pool / Settings.week_length_days / Settings.workstations_config[op])
-                fig.add_shape(
-                    type="line",
-                    # Estendo la linea solo sull'asse X per le colonne del giorno su tutte le room 
-                    x0=-0.5, x1=xline - 0.5,
-                    y0=limite_massimo_extra, y1=limite_massimo_extra,
-                    line=dict(color="green", width=2, dash="dash"),
-                )
+             
                 # fig.update_xaxes(showticklabels=True)
                 # fig.update_traces(showlegend=True, selector=dict(offsetgroup="front"))
                 # fig.update_traces(showlegend=False, selector=dict(offsetgroup="back"))
             fig.update_layout(barmode="overlay")
             fig.update_xaxes(showticklabels=True)
             fig.update_traces(showlegend=False, hoverinfo="skip", selector=dict(offsetgroup="back"))
-            # Aggiungo la linea del limite massimo settimanale
-            fig.add_shape(
-                type="line",
-                x0=-0.5, x1=xline - 0.5 ,  # Estendo la linea su tutto l'asse X
-                y0=limite_massimo, y1=limite_massimo,
-                line=dict(color="red", width=2, dash="dash"),
-            )
+            # # Aggiungo la linea del limite massimo settimanale
+            # fig.add_shape(
+            #     type="line",
+            #     x0=-0.5, x1=xline - 0.5 ,  # Estendo la linea su tutto l'asse X
+            #     y0=limite_massimo, y1=limite_massimo,
+            #     line=dict(color="red", width=2, dash="dash"),
+            # )
 
             fig.add_annotation(
                 x=xline - 1, y=limite_massimo,
