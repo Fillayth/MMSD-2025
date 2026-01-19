@@ -713,7 +713,7 @@ def optimize_daily_batch_rot(patients: List[Patient], specialty: str) ->list[Pat
     #ciclo finché ci sono pazienti da schedulare in patient_list
     while len(patient_list) > 0:
         print(f"Scheduling for {specialty}, Week starting day {current_day}")
-        model = PyomoModel_v2(weekly_patients, operating_rooms, current_day)
+        model = PyomoModel(weekly_patients, operating_rooms, current_day)
         #run solver
         Settings.solver.solve(model, tee=Settings.solver_tee)
         if False: #debug
