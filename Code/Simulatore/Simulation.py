@@ -30,7 +30,6 @@ def read_and_split_by_operation_with_metadata(csv_file) :
                 day=int(row["Day (Day Added to Waiting List)"]),
                 mtb=int(row["MTB (Priority, max waiting days)"]),
                 rot=float(row["ROT (Real Operation Time in minutes)"])
-
             ))
 
     return result
@@ -188,17 +187,13 @@ def group_daily_with_mtb_logic_optimized_rot(
     with open(f"./Data/Rot/{op_type}_extra_time.json", "w", encoding="utf-8") as f:
         json.dump(extra_times, f, indent=4)
     # salvo l'overflow
-    with open(f"./Data/Rot/{op_type}_overflow.json", "w", encoding="utf-8") as f:
-        json.dump(overflows, f, default=lambda o: o.to_dict(), indent=4)
-
+    # with open(f"./Data/Rot/{op_type}_overflow.json", "w", encoding="utf-8") as f:
+    #     json.dump(overflows, f, indent=4)
 
     # print(f"Completed scheduling for specialty: {op_type}")
     return result
 
 #endregion
-
-
-
    
 def export_json_schedule(data, filepath, filename="weekly_schedule.json") -> str:
     if not os.path.exists(filepath):
@@ -259,6 +254,7 @@ def ExportCSVAnalysisResults(schedule: PatientListForSpecialties, dirPath: str):
                 writer.writerow([specialty, week_num, f"{len(scheduled_patients)}/{total_patients}", f"{avg_waiting_time:.2f}", f"{avg_priority:.2f}"])
                 
     print(f"Schedule results exported to {output_path}")
+
 # Main program execution
 if __name__ == "__main__":
 

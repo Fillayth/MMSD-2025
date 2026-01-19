@@ -53,16 +53,17 @@ def main():
         scheduleJson_path = export_json_schedule(schedule.to_dict(), resultsData_folder)
         # caricare alla fine delle schedulazioni tutti i risultati e gestire in qualche modo la visualizzazione 
         Graphs(f"{resultsData_folder}{Settings.images_folder}").MakeGraphs(schedule)
-        ExportCSVResults(schedule, "./Data/Normal/")
-        ExportCSVAnalysisResults(schedule, f"{project_root}/Normal")
+        ExportCSVResults(schedule, "./Data")
+        ExportCSVAnalysisResults(schedule, f"{project_root}")
     else:
 
-        schedule = group_daily_with_mtb_logic_optimized_rot(all_patient_records)
-        scheduleJson_path = export_json_schedule(schedule.to_dict(), resultsData_folder + "/Rot")
+        schedule = group_daily_with_mtb_logic_rot(all_patient_records)
+        # schedule = group_daily_with_mtb_logic_optimized_rot(all_patient_records)
+        scheduleJson_path = export_json_schedule(schedule.to_dict(), resultsData_folder)
         # caricare alla fine delle schedulazioni tutti i risultati e gestire in qualche modo la visualizzazione 
-        Graphs(f"{resultsData_folder}{Settings.images_folder}/Rot").MakeGraphs(schedule)
-        ExportCSVResults(schedule, "./Data/Normal/")
-        ExportCSVAnalysisResults(schedule, f"{project_root}/Normal")
+        Graphs(f"{resultsData_folder}{Settings.images_folder}").MakeGraphs(schedule)
+        ExportCSVResults(schedule, "./Data")
+        ExportCSVAnalysisResults(schedule, f"{project_root}")
 
 
 if __name__ == "__main__":

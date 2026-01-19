@@ -1,14 +1,18 @@
+#from __future__ import annotations
+
 from dataclasses import dataclass
 
 import sys
 import os
+#from typing import Optional
 
 if os.path.basename(__file__) != "main.py":
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'Code')))
 
 @dataclass
 class Patient:
-    def __init__(self, id: int, eot: float, day: int, mtb: int,rot: float = -1, opDay = -1, workstation: int = -1, overdue: bool = False):
+    def __init__(self, id: int, eot: float, day: int, mtb: int,
+        rot: float = None, opDay = -1, workstation: int = -1, overdue: bool = False):
         self.id = id
         self.eot = eot
         self.rot = rot
