@@ -270,6 +270,13 @@ class Graphs:
                 yshift=10,
                 font=dict(color="red")
             )
+            fig.add_annotation(
+                x=0.5, y=Settings.weekly_extra_time_pool + limite_massimo,
+                text=f"minuti massimi di straordinario disponibili",
+                showarrow=False,
+                yshift=10,
+                font=dict(color="green")
+            )
             # mostro il risultato       
             fig.update_layout(
                 updatemenus=[dict(
