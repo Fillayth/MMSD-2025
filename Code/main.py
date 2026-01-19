@@ -56,8 +56,8 @@ def main():
         ExportCSVResults(schedule, "./Data")
         ExportCSVAnalysisResults(schedule, f"{project_root}")
     else:
-
-        schedule = group_daily_with_mtb_logic_rot(all_patient_records)
+        schedule = group_daily_with_mtb_logic_optimized_rot(all_patient_records)
+        # schedule = group_daily_with_mtb_logic_rot(all_patient_records)
         # schedule = group_daily_with_mtb_logic_optimized_rot(all_patient_records)
         scheduleJson_path = export_json_schedule(schedule.to_dict(), resultsData_folder)
         # caricare alla fine delle schedulazioni tutti i risultati e gestire in qualche modo la visualizzazione 
