@@ -172,12 +172,24 @@ def group_daily_with_mtb_logic_optimized_rot(
 ) -> PatientListForSpecialties:
     
     result = PatientListForSpecialties()
-    overflows = {}
+    overflows = PatientListForSpecialties()
+    #overflows = {}
     extra_times = {}
     for op_type, patients in ops_dict.items():
         data = optimize_daily_batch_rot(patients, op_type)
         result[op_type] = data[op_type]["patients"]
-        overflows[op_type] = data[op_type]["overflow"]
+        # overflows[op_type] = data[op_type]["overflow"]
+        for w in data[op_type]["overflow"]:
+            overflows[op_type].extend(w)
+            overflows[op_type].append(Patient(
+                id=-1,
+                eot=0,
+                day=0,
+                mtb=0,
+                rot=0
+            ))
+            # for p in w:
+            #     overflows[op_type].append(p)
         extra_times[op_type] = data[op_type]["extra_time_left"]
     # salvo i dati di overflow e extra time in due file json separati
     # verifico che la cartella esista
@@ -188,7 +200,7 @@ def group_daily_with_mtb_logic_optimized_rot(
         json.dump(extra_times, f, indent=4)
     # salvo l'overflow
     with open(f"./Data/Rot/{op_type}_overflow.json", "w", encoding="utf-8") as f:
-        json.dump(overflows, f, indent=4)
+        json.dump(overflows.to_json(), f, indent=4)
 
     # print(f"Completed scheduling for specialty: {op_type}")
     return result

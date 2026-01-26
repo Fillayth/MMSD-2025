@@ -226,8 +226,9 @@ class Graphs:
                         line=dict(color="green", width=2, dash="dash"),
                         #visible=(weekNum == Settings.start_week_scheduling)
                     ))
-                    val = (extra_time_pool + (limite_massimo * Settings.workstations_config[op])) - sum(p.rot for p in patients if p.opDay == day)
-                    extra_time_pool = val if val >= 0 else 0
+                    
+                    val = (limite_massimo * Settings.workstations_config[op]) - sum(p.rot for p in patients if p.opDay == day)
+                    extra_time_pool = (extra_time_pool + val) if val < 0 else 0
                     # fig.add_shape(
                     #     type="line",
                     #     # Estendo la linea solo sull'asse X per le colonne del giorno su tutte le room 

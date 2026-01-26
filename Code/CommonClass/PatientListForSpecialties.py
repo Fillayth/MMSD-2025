@@ -37,7 +37,7 @@ class PatientListForSpecialties: #PLFS
         }
     def to_json(self):
         return {
-            key: [v.to_dict() for v in values] for key, values in self.list.items()
+            key: [v.to_json() for v in values] for key, values in self.list.items()
         }
 
     @classmethod
