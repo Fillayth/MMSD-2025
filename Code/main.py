@@ -1,3 +1,4 @@
+import json
 import os
 
 from Grafici.Graph import Graphs
@@ -45,9 +46,15 @@ def main():
     # schedule = group_daily_with_mtb_logic_optimized_rot(all_patient_records)
     scheduleJson_path = export_json_schedule(schedule.to_dict(), resultsData_folder)
     # caricare alla fine delle schedulazioni tutti i risultati e gestire in qualche modo la visualizzazione 
-    Graphs(f"{resultsData_folder}{Settings.images_folder}").MakeGraphs(schedule)
-    ExportCSVResults(schedule)
-    ExportCSVAnalysisResults(schedule, f"{project_root}")
+    plan_eot = None
+    try:
+        with open("./Data/Rot/extra_time.json", "r", encoding="utf-8") as f:
+            extra = json.load(f)
+        plan_eot = extra.get("plan_eot", None)
+    except Exception as e:
+        print(f"[WARN] plan_eot non letto: {e}")
+
+    Graphs(f"{resultsData_folder}{Settings.images_folder}").MakeGraphs(schedule, plan_eot=plan_eot)
 
 
 if __name__ == "__main__":

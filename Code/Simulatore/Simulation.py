@@ -11,7 +11,7 @@ from CommonClass.Patient import Patient
 from CommonClass.PatientListForSpecialties import PatientListForSpecialties
 from CommonClass.Week import Week
 from settings import Settings
-from Simulatore.Optimizer import group_weekly_with_mtb_logic_optimized, optimize_daily_batch_cplex
+from Simulatore.Optimizer import group_weekly_with_mtb_logic_optimized, optimize_daily_batch_cplex, optimize_daily_batch_rot_both
 from Simulatore.Optimizer import execute_week_with_rot, optimize_daily_batch_rot
 
 # Reads the CSV file and organizes patient data by operation type
@@ -170,15 +170,19 @@ def group_daily_with_mtb_logic_rot(
 def group_daily_with_mtb_logic_optimized_rot(
     ops_dict: PatientListForSpecialties,
 ) -> PatientListForSpecialties:
-    
+
     result = PatientListForSpecialties()
     overflows = PatientListForSpecialties()
-    #overflows = {}
+
     extra_times = {}
+    sequencing = {}
+    realtime_stats = {}
+
     for op_type, patients in ops_dict.items():
         data = optimize_daily_batch_rot(patients, op_type)
+
         result[op_type] = data[op_type]["patients"]
-        # overflows[op_type] = data[op_type]["overflow"]
+
         for w in data[op_type]["overflow"]:
             overflows[op_type].extend(w)
             overflows[op_type].append(Patient(
@@ -188,23 +192,119 @@ def group_daily_with_mtb_logic_optimized_rot(
                 mtb=0,
                 rot=0
             ))
-            # for p in w:
-            #     overflows[op_type].append(p)
+
         extra_times[op_type] = data[op_type]["extra_time_left"]
-    # salvo i dati di overflow e extra time in due file json separati
-    # verifico che la cartella esista
+
+        # prende realtime_stats SOLO se l'optimizer lo ritorna
+        realtime_stats[op_type] = data[op_type].get("realtime_stats", [])
+
+        # se nel tuo progetto esiste ancora 'sequencing', lo preservo (altrimenti lo lascio vuoto)
+        sequencing[op_type] = sequencing.get(op_type, sequencing.get(op_type, {}))
+
     if not os.path.exists(f"./Data/Rot/"):
         os.makedirs(f"./Data/Rot/")
-    # salvo l'extratime
-    with open(f"./Data/Rot/{op_type}_extra_time.json", "w", encoding="utf-8") as f:
-        json.dump(extra_times, f, indent=4)
-    # salvo l'overflow
-    with open(f"./Data/Rot/{op_type}_overflow.json", "w", encoding="utf-8") as f:
+
+    # IMPORTANTE: non usare {op_type} qui fuori dal loop, altrimenti prende l'ultimo
+    with open(f"./Data/Rot/extra_time.json", "w", encoding="utf-8") as f:
+        json.dump({
+            "extra_times": extra_times,
+            "sequencing": sequencing,
+            "realtime_stats": realtime_stats
+        }, f, indent=4)
+
+    with open(f"./Data/Rot/overflow.json", "w", encoding="utf-8") as f:
         json.dump(overflows.to_json(), f, indent=4)
 
-    # print(f"Completed scheduling for specialty: {op_type}")
     return result
 
+def group_daily_with_mtb_logic_optimized_rot(
+    ops_dict: PatientListForSpecialties,
+) -> PatientListForSpecialties:
+
+    result = PatientListForSpecialties()
+    overflows = PatientListForSpecialties()
+
+    extra_times = {}
+    realtime_stats = {}
+    plans_eot = {}
+
+    # --- helper per convertire Patient in dict JSON serializzabile ---
+    def patient_to_dict(p: Patient) -> dict:
+        return {
+            "id": p.id,
+            "day": p.day,
+            "mtb": p.mtb,
+            "eot": p.eot,
+            "rot": p.rot,
+            "opDay": getattr(p, "opDay", None),
+            "workstation": getattr(p, "workstation", None),
+            "overdue": getattr(p, "overdue", None),
+        }
+
+    for op_type, patients in ops_dict.items():
+
+        data = optimize_daily_batch_rot_both(patients, op_type)
+
+        # ------------------------
+        # Schedule finale (ROT)
+        # ------------------------
+        result[op_type] = data[op_type]["realized_rot"]
+
+        # ------------------------
+        # Piano EOT (convertito in dict)
+        # ------------------------
+        plans_eot[op_type] = [
+            patient_to_dict(p) for p in data[op_type]["plan_eot"]
+        ]
+
+        # ------------------------
+        # Overflow handling
+        # ------------------------
+        for w in data[op_type]["overflow"]:
+            overflows[op_type].extend(w)
+            overflows[op_type].append(
+                Patient(
+                    id=-1,
+                    eot=0,
+                    day=0,
+                    mtb=0,
+                    rot=0
+                )
+            )
+
+        # ------------------------
+        # extra time + stats
+        # ------------------------
+        extra_times[op_type] = data[op_type]["extra_time_left"]
+        realtime_stats[op_type] = data[op_type].get("realtime_stats", [])
+
+    # ------------------------
+    # Assicuro cartella output
+    # ------------------------
+    if not os.path.exists("./Data/Rot/"):
+        os.makedirs("./Data/Rot/")
+
+    # ------------------------
+    # JSON principale
+    # ------------------------
+    with open("./Data/Rot/extra_time.json", "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "extra_times": extra_times,
+                "realtime_stats": realtime_stats,
+                "plan_eot": plans_eot
+            },
+            f,
+            indent=4
+        )
+
+    # ------------------------
+    # overflow json
+    # ------------------------
+    with open("./Data/Rot/overflow.json", "w", encoding="utf-8") as f:
+        json.dump(overflows.to_json(), f, indent=4)
+
+    return result
 #endregion
    
 def export_json_schedule(data, filepath, filename="weekly_schedule.json") -> str:

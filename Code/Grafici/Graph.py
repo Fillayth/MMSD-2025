@@ -127,57 +127,108 @@ class Graphs:
             )
             self.ShowFigure(fig, name=f"WaitingTimeBoxPlot_{op}")
 
-    def PrintDailyBoxGraph(self, operation : PatientListForSpecialties, baseTitle : str): 
+    def PrintDailyBoxGraph(self, operation: PatientListForSpecialties, baseTitle: str, plan_eot: dict | None = None):
         limite_massimo = Settings.daily_operation_limit
-        
-        for op, patients in operation.items():
+
+        for op, patients_real in operation.items():
             xline = Settings.week_length_days * Settings.workstations_config[op]
             title = baseTitle + op
-            # estraggo i dati di una operazione dal formato json 
-            # inizializzo il grafico
-            fig = go.Figure()
-            buttons = []
-            num_patients = len(patients)
-            # Gradazione di colori distribuiti uniformemente
-            color_map_progressive = {
-                p.id: f"hsl({int(i * 360 / num_patients)}, 70%, 50%)" #
-                for i, p in enumerate(sorted(patients, key=lambda x: x.id))
-            }
-            i = 0
-            last_day = max(p.opDay for p in patients)
-            num_weeks = (last_day // Settings.week_length_days) + 1
-            days_title = [f"Day:{day}" for day in range(num_weeks * Settings.week_length_days)]
-            start_index = 0
-            # Definisco la linea del limite massimo settimanale
-            
-            shape_limite_massimo = []
-            shape_limite_massimo.append(dict(
-                type="line",
-                x0=-0.5, x1=xline - 0.5 ,  # Estendo la linea su tutto l'asse X
-                y0=limite_massimo, y1=limite_massimo,
-                line=dict(color="red", width=2, dash="dash"),
-            ))
-            #calcolo il giorno di inizio della schedulazione
-            if Settings.start_week_scheduling >= 1:
-                start_day = f"Day:{(Settings.start_week_scheduling) * Settings.week_length_days}"
-                #trovo l'indice del giorno nell'elenco days_title
-                if start_day in days_title:
-                    start_index = days_title.index(start_day)
-            shapes_by_week = {}
-            for weekNum in range(num_weeks):
-                extra_time_pool = Settings.weekly_extra_time_pool
-                visible = [False] * num_patients * 2  # Due barre per paziente (EOT e ROT)
-                text = f"W:{weekNum}" 
-                # per ogni giorno della settimana inserisco i blocchi dei eot dei pazienti
-                shapes = []
-                for day in range(weekNum * Settings.week_length_days, (weekNum + 1) * Settings.week_length_days):
-                    for room_id in range(Settings.workstations_config[op]):
-                        dailyPatients = [p for p in patients if p.workstation == room_id+1 and p.opDay == day]
-                        mins = round(sum(p.eot for p in dailyPatients), 2)
-                        minsRot = round(sum(p.rot for p in dailyPatients), 2)
-                        for p in dailyPatients:
-                            xtext = f"{text}|D:{day}|OR:{room_id+1}|<br>ToTMin:{mins}|<br>RoTMin:{minsRot}"
-                            #inserisco il blocco eot del paziente
+
+        # --- piano EOT (lista di dict) ---
+        plan_list = plan_eot.get(op, []) if plan_eot is not None else None
+
+        fig = go.Figure()
+
+        # Colori: usa l’unione degli ID (piano + reale) così restano coerenti
+        ids = set()
+        for p in patients_real:
+            ids.add(p.id)
+        if plan_list is not None:
+            for pp in plan_list:
+                if isinstance(pp, dict) and "id" in pp:
+                    ids.add(pp["id"])
+
+        ids = sorted(ids)
+        num_patients = max(1, len(ids))
+        color_map_progressive = {
+            pid: f"hsl({int(i * 360 / num_patients)}, 70%, 50%)"
+            for i, pid in enumerate(ids)
+        }
+
+        # range settimane (come prima)
+        last_day_real = max(p.opDay for p in patients_real) if patients_real else 0
+        last_day_plan = max((pp.get("opDay", 0) for pp in plan_list), default=0) if plan_list is not None else 0
+        last_day = max(last_day_real, last_day_plan)
+        num_weeks = (last_day // Settings.week_length_days) + 1
+
+        # linea limite
+        shape_limite_massimo = [dict(
+            type="line",
+            x0=-0.5, x1=xline - 0.5,
+            y0=limite_massimo, y1=limite_massimo,
+            line=dict(color="red", width=2, dash="dash"),
+        )]
+
+        shapes_by_week = {}
+        trace_idx_by_week = {w: [] for w in range(num_weeks)}
+
+        # --- costruisco TRACES per settimana (visivo identico: EOT front + ROT back) ---
+        for weekNum in range(num_weeks):
+            shapes = []
+            extra_time_pool = Settings.weekly_extra_time_pool
+
+            for day in range(weekNum * Settings.week_length_days, (weekNum + 1) * Settings.week_length_days):
+                for room_id in range(Settings.workstations_config[op]):
+
+                    # REAL (ROT) -> pazienti reali
+                    real_day_room = [p for p in patients_real if p.workstation == room_id + 1 and p.opDay == day]
+                    minsRot = round(sum(p.rot for p in real_day_room), 2)
+
+                    # PLAN (EOT) -> dict dal piano, se disponibile; altrimenti fallback: usa gli stessi pazienti reali
+                    if plan_list is not None:
+                        plan_day_room = [
+                            pp for pp in plan_list
+                            if pp.get("workstation", None) == room_id + 1 and pp.get("opDay", None) == day
+                        ]
+                    else:
+                        plan_day_room = None
+
+                    mins = 0.0
+                    if plan_day_room is not None:
+                        mins = round(sum(float(pp.get("eot", 0) or 0) for pp in plan_day_room), 2)
+                    else:
+                        mins = round(sum(p.eot for p in real_day_room), 2)
+
+                    # x identico: tot EOT e tot ROT nella label
+                    xtext = f"W:{weekNum}|D:{day}|OR:{room_id+1}|<br>ToTMin:{mins}|<br>RoTMin:{minsRot}"
+
+                    # --- FRONT: EOT per paziente (dal piano se c’è) ---
+                    if plan_day_room is not None:
+                        for pp in plan_day_room:
+                            pid = pp.get("id", None)
+                            if pid is None:
+                                continue
+                            peot = float(pp.get("eot", 0) or 0)
+                            pday = pp.get("day", None)
+                            pmtb = pp.get("mtb", None)
+
+                            fig.add_trace(go.Bar(
+                                x=[xtext],
+                                y=[peot],
+                                name=f"Patient {pid}",
+                                hoverinfo="text",
+                                text=[f"Patient {pid}: {int(peot)}m {int((peot % 1) * 60)}s"],
+                                hovertemplate=f'D:{pday}|MTB:{pmtb}<extra></extra>',
+                                marker=dict(color=color_map_progressive.get(pid, "gray")),
+                                cliponaxis=True,
+                                textposition='inside',
+                                offsetgroup="front",
+                                visible=(weekNum == Settings.start_week_scheduling)
+                            ))
+                            trace_idx_by_week[weekNum].append(len(fig.data) - 1)
+                    else:
+                        # fallback: comportamento vecchio (usa i pazienti reali per EOT)
+                        for p in real_day_room:
                             fig.add_trace(go.Bar(
                                 x=[xtext],
                                 y=[p.eot],
@@ -185,125 +236,105 @@ class Graphs:
                                 hoverinfo="text",
                                 text=[f"Patient {p.id}: {int(p.eot)}m {int((p.eot % 1) * 60)}s"],
                                 hovertemplate=f'D:{p.day}|MTB:{p.mtb}<extra></extra>',
-                                marker=dict(color=color_map_progressive[p.id]),
+                                marker=dict(color=color_map_progressive.get(p.id, "gray")),
                                 cliponaxis=True,
                                 textposition='inside',
                                 offsetgroup="front",
                                 visible=(weekNum == Settings.start_week_scheduling)
                             ))
-                            # aggiungo il blocco in trasparenza dei rot dei pazienti dietro i blocchi eot
-                            fig.add_trace(go.Bar(
-                                x=[xtext],
-                                y=[p.rot],
-                                name=f"Patient {p.id} ROT",
-                                hoverinfo="text",
-                                text=[f"Patient {p.id} ROT: {int(p.rot)}m {int((p.rot % 1) * 60)}s"],
-                                hovertemplate=f'D:{p.day}|MTB:{p.mtb}<extra></extra>',
-                                marker=dict(color=color_map_progressive[p.id], opacity=0.3),
-                                cliponaxis=True,
-                                textposition='inside',
-                                offsetgroup="back",
-                                offset=-0.2,
-                                visible=(weekNum == Settings.start_week_scheduling)
-                            ))
-                            visible[i] = True
-                            visible[i + 1] = True
-                            i += 2
-                
-                    #print(f"Count p : {len([p for p in patients if p.opDay == day])} - Day: {day} - Extra time pool: {extra_time_pool} -  sum rot: {sum(p.rot for p in patients if p.opDay == day)-(limite_massimo * Settings.workstations_config[op])}")
-                    # calcolo il valori x0 e x1 e il valore di y per la linea del tempo extra giornaliero
-                    # i valori x0 e x1 sono calcolati per coprire tutte le room del giorno
-                    dayNumInWeek = day % Settings.week_length_days
-                    x0 = dayNumInWeek * Settings.workstations_config[op] - 0.5
-                    x1 = (dayNumInWeek + 1) * Settings.workstations_config[op] - 0.5
+                            trace_idx_by_week[weekNum].append(len(fig.data) - 1)
 
-                    # limite_massimo_extra = limite_massimo_extra + (extra_time_pool / Settings.week_length_days / Settings.workstations_config[op])
-                    shapes.append(dict(
-                        type="line",
-                        # Estendo la linea solo sull'asse X per le colonne del giorno su tutte le room 
-                        x0=x0, x1=x1,
-                        y0=limite_massimo + extra_time_pool, y1=limite_massimo + extra_time_pool,
-                        line=dict(color="green", width=2, dash="dash"),
-                        #visible=(weekNum == Settings.start_week_scheduling)
-                    ))
-                    
-                    val = (limite_massimo * Settings.workstations_config[op]) - sum(p.rot for p in patients if p.opDay == day)
-                    extra_time_pool = (extra_time_pool + val) if val < 0 else 0
-                    # fig.add_shape(
-                    #     type="line",
-                    #     # Estendo la linea solo sull'asse X per le colonne del giorno su tutte le room 
-                    #     x0=x0, x1=x1,
-                    #     y0=limite_massimo + extra_time_pool, y1=limite_massimo + extra_time_pool,
-                    #     line=dict(color="green", width=2, dash="dash"),
-                    #     visible=(weekNum == Settings.start_week_scheduling)
-                    # )
-                shapes_by_week[weekNum] = shapes
-                buttons.append(dict(
-                    label=f"Settimana {weekNum}",
-                    method="update",
-                    args=[{"visible": visible},
-                            {
-                                "title": title,
-                                "shapes": shape_limite_massimo + shapes_by_week[weekNum]
-                                }
-                            ]
-                        #   {"title": f"{title} - Settimana {week.weekNum}"}]
+                    # --- BACK: ROT per paziente (sempre dal reale) ---
+                    for p in real_day_room:
+                        fig.add_trace(go.Bar(
+                            x=[xtext],
+                            y=[p.rot],
+                            name=f"Patient {p.id} ROT",
+                            hoverinfo="text",
+                            text=[f"Patient {p.id} ROT: {int(p.rot)}m {int((p.rot % 1) * 60)}s"],
+                            hovertemplate=f'D:{p.day}|MTB:{p.mtb}<extra></extra>',
+                            marker=dict(color=color_map_progressive.get(p.id, "gray"), opacity=0.3),
+                            cliponaxis=True,
+                            textposition='inside',
+                            offsetgroup="back",
+                            offset=-0.2,
+                            visible=(weekNum == Settings.start_week_scheduling)
+                        ))
+                        trace_idx_by_week[weekNum].append(len(fig.data) - 1)
+
+                # linea extra giornaliero (come prima, basata sui ROT reali)
+                dayNumInWeek = day % Settings.week_length_days
+                x0 = dayNumInWeek * Settings.workstations_config[op] - 0.5
+                x1 = (dayNumInWeek + 1) * Settings.workstations_config[op] - 0.5
+
+                shapes.append(dict(
+                    type="line",
+                    x0=x0, x1=x1,
+                    y0=limite_massimo + extra_time_pool, y1=limite_massimo + extra_time_pool,
+                    line=dict(color="green", width=2, dash="dash"),
                 ))
-             
-                # fig.update_xaxes(showticklabels=True)
-                # fig.update_traces(showlegend=True, selector=dict(offsetgroup="front"))
-                # fig.update_traces(showlegend=False, selector=dict(offsetgroup="back"))
-            fig.update_layout(barmode="overlay")
-            fig.update_xaxes(showticklabels=True)
-            fig.update_traces(showlegend=False, hoverinfo="skip", selector=dict(offsetgroup="back"))
-            # # Aggiungo la linea del limite massimo settimanale
-            # fig.add_shape(
-            #     type="line",
-            #     x0=-0.5, x1=xline - 0.5 ,  # Estendo la linea su tutto l'asse X
-            #     y0=limite_massimo, y1=limite_massimo,
-            #     line=dict(color="red", width=2, dash="dash"),
-            # )
 
-            fig.add_annotation(
-                x=xline - 1, y=limite_massimo,
-                text=f"{limite_massimo} minuti (limite giornaliero)",
-                showarrow=False,
-                yshift=10,
-                font=dict(color="red")
-            )
-            fig.add_annotation(
-                x=0.5, y=Settings.weekly_extra_time_pool + limite_massimo,
-                text=f"minuti massimi di straordinario disponibili",
-                showarrow=False,
-                yshift=10,
-                font=dict(color="green")
-            )
-            # mostro il risultato       
-            fig.update_layout(
-                updatemenus=[dict(
-                    active=0,
-                    buttons=buttons,
-                    x=0.95,
-                    y=1.1,
-                    xanchor='right',
-                    yanchor='top'
-                )],
-                barmode="stack",
-                title=title,
-                showlegend=False,
-                yaxis_title="Minuti Totali",
-                xaxis_title="Giorni",
-            )
-            # if Settings.start_week_scheduling >= 1:
-            #     fig.add_vline(
-            #         x=start_index - 0.5,
-            #         line=dict(color="orange", width=2, dash="dash"),
-            #         annotation_text="Inizio Schedulazione",
-            #         annotation_position="top right",
-            #         annotation_font_color="orange"
-            #     )
-            self.ShowFigure(fig, name=f"DailyBoxGraph_{op}")
-    
+                val = (limite_massimo * Settings.workstations_config[op]) - sum(p.rot for p in patients_real if p.opDay == day)
+                extra_time_pool = (extra_time_pool + val) if val < 0 else 0
+
+            shapes_by_week[weekNum] = shapes
+
+        # --- bottoni settimana: visibilità corretta anche se PLAN e REAL hanno num barre diverso ---
+        buttons = []
+        total_traces = len(fig.data)
+        for weekNum in range(num_weeks):
+            visible = [False] * total_traces
+            for idx in trace_idx_by_week[weekNum]:
+                if 0 <= idx < total_traces:
+                    visible[idx] = True
+
+            buttons.append(dict(
+                label=f"Settimana {weekNum}",
+                method="update",
+                args=[
+                    {"visible": visible},
+                    {"title": title, "shapes": shape_limite_massimo + shapes_by_week[weekNum]}
+                ]
+            ))
+
+        # overlay identico a prima
+        fig.update_layout(barmode="overlay")
+        fig.update_xaxes(showticklabels=True)
+        fig.update_traces(showlegend=False, hoverinfo="skip", selector=dict(offsetgroup="back"))
+
+        fig.add_annotation(
+            x=xline - 1, y=limite_massimo,
+            text=f"{limite_massimo} minuti (limite giornaliero)",
+            showarrow=False,
+            yshift=10,
+            font=dict(color="red")
+        )
+        fig.add_annotation(
+            x=0.5, y=Settings.weekly_extra_time_pool + limite_massimo,
+            text="minuti massimi di straordinario disponibili",
+            showarrow=False,
+            yshift=10,
+            font=dict(color="green")
+        )
+
+        fig.update_layout(
+            updatemenus=[dict(
+                active=0,
+                buttons=buttons,
+                x=0.95,
+                y=1.1,
+                xanchor='right',
+                yanchor='top'
+            )],
+            barmode="stack",  # come prima nel tuo layout finale
+            title=title,
+            showlegend=False,
+            yaxis_title="Minuti Totali",
+            xaxis_title="Giorni",
+        )
+
+        self.ShowFigure(fig, name=f"DailyBoxGraph_{op}")
+
     def PrintTrendLineGraph(self, operation : PatientListForSpecialties, baseTitle : str): 
         # estraggo i dati di una operazione dal formato json 
         # inizializzo il grafico
@@ -534,13 +565,15 @@ class Graphs:
             )
             self.ShowFigure(fig, name=f"WaitingListLineGraph_{op}")
 
-    def MakeGraphs(self, data : PatientListForSpecialties, showGraphs: bool = True):
+  
+
+    def MakeGraphs(self, data: PatientListForSpecialties, showGraphs: bool = True, plan_eot: dict | None = None):
         self.ShowFigures = showGraphs
-        self.PrintDailyBoxGraph(data, "Distribuzione dei pazienti per " )
-        self.PrintTrendLineGraph(data, "Andamento tempo occupato per " )
+        self.PrintDailyBoxGraph(data, "Distribuzione dei pazienti per ", plan_eot=plan_eot)
+        self.PrintTrendLineGraph(data, "Andamento tempo occupato per ")
         self.PrintWaitingListLineGraph(data, "Andamento lista d'attesa per ")
         self.PrintWaitingTimeBoxPlotGraph(data, "Tempi di attesa per ")
-        #self.BoxPlotUnusedTime(data, "Tempi medi non utilizzati per ") #utilizza ancora le classi delle settimane per i dati 
+     #self.BoxPlotUnusedTime(data, "Tempi medi non utilizzati per ") #utilizza ancora le classi delle settimane per i dati 
 
     # for op in data:
         

@@ -203,6 +203,25 @@ def PyomoModel_0(newPatientsList: list[Patient], operatingRoom_count: int, start
     model.Objective = pyo.Objective(rule=objective_rule_M1, sense=pyo.maximize)
     return model
 
+def pick_next_patient_realtime(candidates, today, remaining_capacity_eot):
+    """
+    Sceglie il prossimo paziente tra quelli disponibili OGGI (candidates),
+    usando solo info note ex-ante sul prossimo caso: MTB + EOT.
+    """
+    feasible = []
+    for p in candidates:
+        if p.eot <= remaining_capacity_eot:
+            feasible.append(p)
+
+    if not feasible:
+        return None
+
+    feasible.sort(key=lambda p: (
+        (p.day + p.mtb) - today,  # slack MTB: più piccolo = più urgente
+        p.eot                     # poi EOT più piccolo (massimizza count)
+    ))
+
+    return feasible[0]
 
 def indice_massimo_inferiore(lst, x):
     '''
@@ -510,103 +529,297 @@ def execute_week_with_rot(
 
     return executed_patients, overflow_to_next_week, extra_time_pool
 
+def simulate_week_rot(planned_patients: List[Patient], specialty: str, week_start_day: int):
+    # Sequencing check / realtime logic vive in clean_week_with_rot
+    executed, overflow, extra_time_left, week_stats = clean_week_with_rot(
+        patients=planned_patients,
+        specialty=specialty,
+        week_start_day=week_start_day,
+        extra_time_pool=Settings.weekly_extra_time_pool
+    )
+    return executed, overflow, extra_time_left, week_stats
+
+def plan_week_eot(patients: List[Patient], specialty: str, week_start_day: int) -> List[Patient]:
+    operating_rooms = Settings.workstations_config[specialty]
+
+    model = PyomoModel_0(patients, operating_rooms, week_start_day)
+    Settings.solver.solve(model, tee=Settings.solver_tee)
+
+    planned = [
+        Patient(
+            id=model.id_p[i],
+            eot=model.eot[i],
+            day=model.dr[i],
+            mtb=model.mtb[i],
+            rot=patients[[p.id for p in patients].index(model.id_p[i])].rot,
+            opDay=t,
+            workstation=k,
+            overdue=False
+        )
+        for i in model.I for k in model.K for t in model.T
+        if pyo.value(model.ORs[i, t, k]) == 1
+    ]
+
+    # Solo determinismo (NON swap): rende l'output stabile
+    planned.sort(key=lambda p: (p.opDay, p.workstation, p.id))
+    return planned
+
 def clean_week_with_rot(
         patients: List[Patient],
         specialty: str,
         week_start_day: int,
         extra_time_pool: float,
     ):
-    # definisco le variabili utili
+    # variabili utili
     day_limit = Settings.daily_operation_limit
     week_days = Settings.week_length_days
     operationRoom_num = Settings.workstations_config[specialty]
-    # definisco le variabili risultato 
+
+    # risultati
     executed = []
     overflow_to_next_week = []
     remeaning_extra_time_pool = extra_time_pool
-    #estraggo per ogni giorno la lista dei pazienti schedulati 
-    for today in range(week_start_day, week_start_day + week_days):    
-        daily_patients = [p for p in patients if p.opDay == today]
-        #divido i pazienti in base alla sala operatoria
-        for opRoom in range(operationRoom_num):
-            room_patients = [p for p in daily_patients if p.workstation == opRoom+1]
-            #sommo le rot fino a superate il tempo massimo giornaliero 
-            rot_sum = 0
-            for p in room_patients:
-                if rot_sum + p.rot >= day_limit + remeaning_extra_time_pool:
-                    break
-                rot_sum += p.rot
-                #seleziono i pazienti eseguiti 
-                executed.append(p)
-            # aggiorno il pool di tempo rimanente 
-            if rot_sum > day_limit:
-                remeaning_extra_time_pool = remeaning_extra_time_pool - (rot_sum - day_limit) 
-            # espando la lista dei pazienti non eseguiti 
-        overflow_to_next_week.extend([p for p in daily_patients if p not in executed])
-    return executed, overflow_to_next_week, remeaning_extra_time_pool
-    
 
-def optimize_daily_batch_rot(patients: List[Patient], specialty: str) ->list[Patient]:
+    # pazienti slittati dal giorno precedente (da aggiungere al giorno corrente)
+    carryover = []
+
+    # stats settimanali
+    stats = {
+        "week_start_day": week_start_day,
+        "daily": {},  # key: "day_<today>_room_<room>"
+        "shifted_within_week": 0,
+        "overflow_to_next_week": 0
+    }
+
+    # per ogni giorno della settimana
+    for today in range(week_start_day, week_start_day + week_days):
+
+        # pazienti previsti per oggi + quelli slittati da ieri
+        daily_patients = [p for p in patients if p.opDay == today]
+        if carryover:
+            daily_patients.extend(carryover)
+            carryover = []
+
+        # pazienti non eseguiti oggi (da slittare a domani o overflow)
+        not_executed_today = []
+
+        # per ogni sala
+        for opRoom in range(operationRoom_num):
+
+            room_patients = [p for p in daily_patients if p.workstation == opRoom + 1]
+
+            # ordine "planned" (quello che arriva dal solver / input)
+            planned_order = [p.id for p in room_patients]
+
+            # tempo reale consumato (ROT) finora in questa sala oggi
+            rot_sum = 0
+
+            # lista locale dei non ancora eseguiti (solo pazienti di OGGI per questa sala)
+            remaining = room_patients[:]
+
+            # ordine realmente eseguito (realtime)
+            executed_order = []
+
+            while True:
+
+                # capacità residua valutata EX-ANTE con EOT:
+                # giorno base + extra rimanente - tempo reale già consumato
+                remaining_capacity_eot = (day_limit + remeaning_extra_time_pool) - rot_sum
+
+                if remaining_capacity_eot <= 0:
+                    break
+
+                next_p = pick_next_patient_realtime(remaining, today, remaining_capacity_eot)
+
+                if next_p is None:
+                    break
+
+                # eseguo next_p: ora conosco il ROT reale di questo caso (monitoraggio realtime)
+                rot_sum += next_p.rot
+                executed.append(next_p)
+                executed_order.append(next_p.id)
+                remaining.remove(next_p)
+
+            shifted_ids = [p.id for p in remaining]
+
+            # metrica swap semplice: posizioni diverse tra planned e executed (sui primi m elementi)
+            swap_positions = 0
+            m = min(len(planned_order), len(executed_order))
+            for idx in range(m):
+                if planned_order[idx] != executed_order[idx]:
+                    swap_positions += 1
+
+            key = f"day_{today}_room_{opRoom+1}"
+            stats["daily"][key] = {
+                "planned_order": planned_order,
+                "executed_order": executed_order,
+                "shifted_to_next_day": shifted_ids,
+                "executed_count": len(executed_order),
+                "shifted_count": len(shifted_ids),
+                "swap_positions": swap_positions
+            }
+
+            # aggiornamento extra pool a fine sala (consumo extra solo se rot_sum supera day_limit)
+            if rot_sum > day_limit:
+                remeaning_extra_time_pool = remeaning_extra_time_pool - (rot_sum - day_limit)
+
+            # quelli rimasti in questa sala oggi non sono stati eseguiti
+            not_executed_today.extend(remaining)
+
+        # sposto a domani (se domani è dentro la settimana), altrimenti overflow settimana dopo
+        next_day = today + 1
+        last_day = week_start_day + week_days - 1
+
+        if today < last_day:
+            stats["shifted_within_week"] += len(not_executed_today)
+            for p in not_executed_today:
+                p.opDay = next_day
+                carryover.append(p)
+        else:
+            stats["overflow_to_next_week"] += len(not_executed_today)
+            overflow_to_next_week.extend(not_executed_today)
+
+    return executed, overflow_to_next_week, remeaning_extra_time_pool, stats
+
+def optimize_daily_batch_rot(patients: List[Patient], specialty: str) -> list[Patient]:
     """ 
-    Utilizza il modello cplex per impostare secondo i tempi eot la scheduazione settimanale 
-    e sulla soluzione del modello viene applicata la logica sul ROT che esclude i pazienti che 
-    non sono stati operati a fine settimana e li rimanda alla settimana successiva
+    Utilizza il modello cplex per impostare secondo i tempi eot la schedulazione settimanale 
+    e sulla soluzione del modello viene applicata la logica sul ROT + extra-time in modalità realtime:
+    - si lavora solo con i pazienti previsti nella giornata
+    - si decide chi eseguire oggi e chi spostare a domani (entro la settimana)
+    - a fine settimana, ciò che resta va in overflow alla settimana successiva
     """
+
     patient_list = sorted(patients, key=lambda p: p.day)
-    day_for_week = Settings.week_length_days #giorni lavorativi a settimana
-    day_start = Settings.start_week_scheduling * day_for_week #inizio settimana lavorativa
-    operating_rooms = Settings.workstations_config[specialty] #sale operatorie per specialità
+    day_for_week = Settings.week_length_days
+    day_start = Settings.start_week_scheduling * day_for_week
+    operating_rooms = Settings.workstations_config[specialty]
+
     current_day = day_start
-    weekly_patients = [p for p in patient_list if p.day < current_day] #lista di pazienti da schedulare nella settimana
-    result = {specialty: {
-        "patients": [], 
-        "overflow": [],
-        "extra_time_left": []
-    }}
-    #ciclo finché ci sono pazienti da schedulare in patient_list
+    weekly_patients = [p for p in patient_list if p.day < current_day]
+
+    result = {
+        specialty: {
+            "patients": [],
+            "overflow": [],
+            "extra_time_left": [],
+            "realtime_stats": []
+        }
+    }
+
+    # ciclo finché ci sono pazienti da schedulare
     while len(patient_list) > 0:
+
         print(f"Scheduling for {specialty}, Week starting day {current_day}")
-        #model = PyomoModel_withROT(weekly_patients, operating_rooms, current_day)
+
+        # 1) Solver: assegna pazienti a giorni e sale usando EOT
         model = PyomoModel_0(weekly_patients, operating_rooms, current_day)
-        #run solver
         Settings.solver.solve(model, tee=Settings.solver_tee)
-        if False: #debug
+
+        if False:  # debug
             print("Solver Status:", Settings.solver.status)
             print("Termination Condition:", Settings.solver.termination_condition)
-            assignazioni = [(i,model.id_p[i], k, t, model.dr[i], model.mtb[i], pyo.value(model.ORs[i, t, k])) for i in model.I for k in model.K for t in model.T]
-            scrivi_csv_incrementale(assignazioni, nome_file = f"model_results_{specialty.replace(' ', '_')}.csv")
-        #dalla soluzione del modello estraggo la lista dei pazienti schedulati 
-        scheduled_patients = [Patient(
-            id = model.id_p[i],
-            eot = model.eot[i],
-            day = model.dr[i],
-            mtb = model.mtb[i],
-            rot = patients[[p.id for p in patients].index(model.id_p[i])].rot,
-            opDay= t,
-            workstation= k,
-            overdue=False)
-            for i in model.I for k in model.K for t in model.T if pyo.value(model.ORs[i, t, k])==1]
-        # dalla lista dei pazienti schedulati applico la logica sul ROT e overflow time
-        executed, overflow, extra_time_pool = clean_week_with_rot(
+            assignazioni = [
+                (i, model.id_p[i], k, t, model.dr[i], model.mtb[i], pyo.value(model.ORs[i, t, k]))
+                for i in model.I for k in model.K for t in model.T
+            ]
+            scrivi_csv_incrementale(assignazioni, nome_file=f"model_results_{specialty.replace(' ', '_')}.csv")
+
+        # estraggo pazienti schedulati dal solver
+        scheduled_patients = [
+            Patient(
+                id=model.id_p[i],
+                eot=model.eot[i],
+                day=model.dr[i],
+                mtb=model.mtb[i],
+                rot=patients[[p.id for p in patients].index(model.id_p[i])].rot,
+                opDay=t,
+                workstation=k,
+                overdue=False
+            )
+            for i in model.I for k in model.K for t in model.T
+            if pyo.value(model.ORs[i, t, k]) == 1
+        ]
+
+        # 2) Esecuzione realtime nella settimana (decide oggi vs domani) + logging stats
+        executed, overflow, extra_time_pool, week_stats = clean_week_with_rot(
             patients=scheduled_patients,
             specialty=specialty,
             week_start_day=current_day,
             extra_time_pool=Settings.weekly_extra_time_pool,
         )
-        # aggiorno la lista dei pazienti settimanali aggiungendo quelli della settimana successiva dalla lista pazienti originale
+
+        # 3) Aggiorno la lista settimanale con nuovi arrivi settimana successiva
         current_day += day_for_week
-        weekly_patients.extend([p for p in patient_list if current_day - day_for_week <= p.day < current_day and p not in weekly_patients])
+        weekly_patients.extend([
+            p for p in patient_list
+            if current_day - day_for_week <= p.day < current_day and p not in weekly_patients
+        ])
+
         # rimuovo solo i pazienti eseguiti dalla lista settimanale
-        weekly_patients = [p for p in weekly_patients if p.id not in [ep.id for ep in executed]]         
-        #salvo i risultati della settimana
-        #result[specialty]["patients"].extend(scheduled_patients)
+        weekly_patients = [p for p in weekly_patients if p.id not in [ep.id for ep in executed]]
+
+        # 4) Salvo risultati settimana
         result[specialty]["patients"].extend(executed)
         result[specialty]["overflow"].append(overflow)
         result[specialty]["extra_time_left"].append(extra_time_pool)
-        #controllo per evitare loop infiniti
+        result[specialty]["realtime_stats"].append(week_stats)
+
+        # controllo per evitare loop infiniti
         if current_day >= day_start + (Settings.weeks_to_fill) * day_for_week:
             print(f"Reached the maximum scheduling period for {specialty}. Stopping further scheduling.")
             break
+
+    return result
+
+def optimize_daily_batch_rot_both(patients: List[Patient], specialty: str):
+    patient_list = sorted(patients, key=lambda p: p.day)
+
+    day_for_week = Settings.week_length_days
+    day_start = Settings.start_week_scheduling * day_for_week
+    current_day = day_start
+
+    weekly_patients = [p for p in patient_list if p.day < current_day]
+
+    result = {
+        specialty: {
+            "plan_eot": [],          # piano EOT (NO swap)
+            "realized_rot": [],      # eseguiti ROT (swap SOLO qui)
+            "overflow": [],
+            "extra_time_left": [],
+            "realtime_stats": []
+        }
+    }
+
+    while len(patient_list) > 0:
+        print(f"Scheduling for {specialty}, Week starting day {current_day}")
+
+        # RAMO A: piano EOT
+        planned = plan_week_eot(weekly_patients, specialty, current_day)
+        result[specialty]["plan_eot"].extend(planned)
+
+        # RAMO B: realizzato ROT
+        executed, overflow, extra_left, week_stats = simulate_week_rot(planned, specialty, current_day)
+        result[specialty]["realized_rot"].extend(executed)
+        result[specialty]["overflow"].append(overflow)
+        result[specialty]["extra_time_left"].append(extra_left)
+        result[specialty]["realtime_stats"].append(week_stats)
+
+        # avanzamento settimana
+        current_day += day_for_week
+        weekly_patients.extend([
+            p for p in patient_list
+            if current_day - day_for_week <= p.day < current_day and p not in weekly_patients
+        ])
+
+        # rimuovo solo gli eseguiti ROT
+        executed_ids = {p.id for p in executed}
+        weekly_patients = [p for p in weekly_patients if p.id not in executed_ids]
+
+        if current_day >= day_start + (Settings.weeks_to_fill) * day_for_week:
+            print(f"Reached the maximum scheduling period for {specialty}. Stopping further scheduling.")
+            break
+
     return result
 
 def group_daily_with_mtb_logic_rot(
