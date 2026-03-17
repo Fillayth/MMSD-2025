@@ -3,6 +3,7 @@ import csv
 import numpy as np
 import time
 import os
+from settings import Settings
 
 def set_seed(seed):
     # Imposta il seed per random e numpy.random per garantire la ripetibilità.
@@ -120,13 +121,17 @@ def generate_csv(
         patients_in_week = 0
 
         # Ciclo sui giorni feriali (lunedì-venerdì)
-        for weekday in range(1, 6):
+        for weekday in range(1, Settings.week_length_days + 1):
             # Determina il numero di pazienti da generare oggi in base alla distribuzione scelta
+            people_params = Settings.daily_patient_arrival_distribution_params.get(people_distribution, {})
             if people_distribution == 'normal':
-                patients_today = int(round(np.random.normal(15, 5)))
+                mean = people_params.get('mean', 15)
+                std = people_params.get('std', 5)
+                patients_today = int(round(np.random.normal(mean, std)))
                 patients_today = max(1, patients_today)
             elif people_distribution == 'poisson':
-                patients_today = np.random.poisson(25)
+                mean = people_params.get('mean', 25)
+                patients_today = np.random.poisson(mean)
                 patients_today = max(1, patients_today)
             else:
                 patients_today = 1
@@ -143,11 +148,12 @@ def generate_csv(
                 estimated_time = generate_time(
                     params['K2'], params['K7'], params['K8'], params['K9'], params['K3']
                 )
-                real_time = round(estimated_time * np.random.uniform(0.8, 1.8), 3)
+                rot_min, rot_max = Settings.rot_over_eot_multiplier_range
+                real_time = round(estimated_time * np.random.uniform(rot_min, rot_max), 3)
                 priority = sample_from_distribution(
                     prio_params['distribution'], int, mean=prio_params['mean'], std=prio_params['std']
                 )
-                absolute_day = week * 5 + weekday
+                absolute_day = week * Settings.week_length_days + weekday
 
                 patient_records.append([
                     patient_id,
@@ -175,49 +181,50 @@ def generate_csv(
     return write_reports(patient_records, weekly_report, seed, filepath)
 
 
-if __name__ == "__main__":
-    specialties = ["Specialty A", "Specialty B"]  # Esempio con più specialità
-    weekly_hours = 80
-
-    specialty_params = {
-        "Specialty A": {
-            'K2': {'distribution': 'lognormal', 'mean': 1.98, 'std': 0.50},
-            'K7': {'distribution': 'gamma', 'shape': 3.25, 'scale': 4.22},
-            'K8': {'distribution': 'lognormal', 'mean': 2.53, 'std': 0.72},
-            'K9': {'distribution': 'lognormal', 'mean': 1.24, 'std': 0.60},
-            'K3': {'distribution': 'lognormal', 'mean': 1.60, 'std': 0.67}
-        },
-        "Specialty B": {
-            'K2': {'distribution': 'lognormal', 'mean': 2.10, 'std': 0.55},
-            'K7': {'distribution': 'gamma', 'shape': 3.50, 'scale': 4.50},
-            'K8': {'distribution': 'lognormal', 'mean': 2.70, 'std': 0.80},
-            'K9': {'distribution': 'lognormal', 'mean': 1.30, 'std': 0.65},
-            'K3': {'distribution': 'lognormal', 'mean': 1.70, 'std': 0.70}
-        }
-    }
-
-    priority_params = {
-        "Specialty A": {
-            "distribution": "normal",
-            "mean": 15,
-            "std": 5
-        },
-        "Specialty B": {
-            "distribution": "normal",
-            "mean": 20,
-            "std": 7
-        }
-    }
-
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    generate_csv(
-        specialties=specialties,
-        weekly_hours=weekly_hours,
-        num_weeks=52,
-        seed=None,
-        specialty_params=specialty_params,
-        people_distribution='poisson',
-        priority_params=priority_params,  # <-- passa il nuovo dizionario
-        filepath=project_root
-    )
-    print("File 'Patient_Record.csv' generato con successo.")
+# Main di prova disattivato (tenuto come riferimento).
+# if __name__ == "__main__":
+#     specialties = ["Specialty A", "Specialty B"]  # Esempio con più specialità
+#     weekly_hours = 80
+#
+#     specialty_params = {
+#         "Specialty A": {
+#             'K2': {'distribution': 'lognormal', 'mean': 1.98, 'std': 0.50},
+#             'K7': {'distribution': 'gamma', 'shape': 3.25, 'scale': 4.22},
+#             'K8': {'distribution': 'lognormal', 'mean': 2.53, 'std': 0.72},
+#             'K9': {'distribution': 'lognormal', 'mean': 1.24, 'std': 0.60},
+#             'K3': {'distribution': 'lognormal', 'mean': 1.60, 'std': 0.67}
+#         },
+#         "Specialty B": {
+#             'K2': {'distribution': 'lognormal', 'mean': 2.10, 'std': 0.55},
+#             'K7': {'distribution': 'gamma', 'shape': 3.50, 'scale': 4.50},
+#             'K8': {'distribution': 'lognormal', 'mean': 2.70, 'std': 0.80},
+#             'K9': {'distribution': 'lognormal', 'mean': 1.30, 'std': 0.65},
+#             'K3': {'distribution': 'lognormal', 'mean': 1.70, 'std': 0.70}
+#         }
+#     }
+#
+#     priority_params = {
+#         "Specialty A": {
+#             "distribution": "normal",
+#             "mean": 15,
+#             "std": 5
+#         },
+#         "Specialty B": {
+#             "distribution": "normal",
+#             "mean": 20,
+#             "std": 7
+#         }
+#     }
+#
+#     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+#     generate_csv(
+#         specialties=specialties,
+#         weekly_hours=weekly_hours,
+#         num_weeks=52,
+#         seed=None,
+#         specialty_params=specialty_params,
+#         people_distribution='poisson',
+#         priority_params=priority_params,  # <-- passa il nuovo dizionario
+#         filepath=project_root
+#     )
+#     print("File 'Patient_Record.csv' generato con successo.")

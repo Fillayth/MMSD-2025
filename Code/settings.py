@@ -30,7 +30,20 @@ class Settings:
     # Total hours to fill per week
     week_hours_to_fill = 80  # 80 hours
     # Number of weeks to fill
-    weeks_to_fill = 6
+    weeks_to_fill = 4
+    # Distribuzione usata per generare il numero di nuovi pazienti per giorno.
+    # Valori supportati: "normal", "poisson".
+    daily_patient_arrival_distribution = "normal"
+    # Parametri delle distribuzioni per il numero di nuovi pazienti/giorno.
+    # - normal : usa mean e std
+    # - poisson: usa mean
+    daily_patient_arrival_distribution_params = {
+        "normal": {"mean": 50, "std": 15},
+        "poisson": {"mean": 25}
+    }
+    # Intervallo del moltiplicatore per simulare ROT a partire da EOT:
+    # ROT = EOT * U(min, max)
+    rot_over_eot_multiplier_range = (0.8, 1.3)
 
     specialty_params = {
         "Specialty A": {
@@ -81,7 +94,7 @@ class Settings:
     # Length of a week in days 
     week_length_days = 5
     # Weekly operation time overflow in minutes
-    weekly_extra_time_pool = 600
+    weekly_extra_time_pool = 180
     # Solver configuration
     solver = pyo.SolverFactory('cplex')  # Use CPLEX solver
     #endregion

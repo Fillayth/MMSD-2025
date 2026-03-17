@@ -4,7 +4,7 @@ import os
 from Grafici.Graph import Graphs
 from RecordGeneration.PatientRecordGenerator import generate_csv
 from settings import Settings
-from Simulatore.Simulation import group_daily_with_mtb_logic_rot, group_daily_with_mtb_logic_optimized, read_and_split_by_operation_with_metadata, group_daily_with_mtb_logic, export_json_schedule, ExportCSVResults, ExportCSVAnalysisResults, group_daily_with_mtb_logic_optimized_rot
+from Simulatore.Simulation import read_and_split_by_operation_with_metadata, export_json_schedule, group_daily_with_mtb_logic_optimized_rot
 
 
 # Main function to generate patient records and weekly reports
@@ -16,11 +16,6 @@ def main():
     specialties = list(Settings.workstations_config.keys())
 
     weekly_hours = Settings.week_hours_to_fill  # Total available hours for operations per week
-    K2_params = {'distribution': 'lognormal', 'mean': 1.980694593, 'std': 0.5021391517}
-    K7_params = {'distribution': 'gamma', 'shape': 3.25036037, 'scale': 4.22461821}
-    K8_params = {'distribution': 'lognormal', 'mean': 2.529958165, 'std': 0.7196641252}
-    K9_params = {'distribution': 'lognormal', 'mean': 1.238535974, 'std': 0.6021773292}
-    K3_params = {'distribution': 'lognormal', 'mean': 1.59782238, 'std': 0.6741858934}
 
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/Data"
     
@@ -30,7 +25,7 @@ def main():
         num_weeks=Settings.weeks_to_fill,
         seed=Settings.GetSeed(), #197558074,
         specialty_params=Settings.specialty_params,
-        people_distribution='poisson',
+        people_distribution=Settings.daily_patient_arrival_distribution,
         priority_params=Settings.priority_params,  # <-- passa il nuovo dizionario
         filepath=project_root
     )

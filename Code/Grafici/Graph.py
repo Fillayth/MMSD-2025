@@ -136,6 +136,19 @@ class Graphs:
 
         # --- piano EOT (lista di dict) ---
         plan_list = plan_eot.get(op, []) if plan_eot is not None else None
+        if plan_list is not None:
+            latest_plan_by_id = {}
+            for pp in plan_list:
+                if not isinstance(pp, dict):
+                    continue
+                pid = pp.get("id", None)
+                if pid is None:
+                    continue
+                latest_plan_by_id[pid] = pp
+            plan_list = sorted(
+                latest_plan_by_id.values(),
+                key=lambda pp: (pp.get("opDay", 0), pp.get("workstation", 0), pp.get("id", 0)),
+            )
 
         fig = go.Figure()
 
@@ -216,9 +229,8 @@ class Graphs:
                                 x=[xtext],
                                 y=[peot],
                                 name=f"Patient {pid}",
-                                hoverinfo="text",
                                 text=[f"Patient {pid}: {int(peot)}m {int((peot % 1) * 60)}s"],
-                                hovertemplate=f'D:{pday}|MTB:{pmtb}<extra></extra>',
+                                hovertemplate=f'Paziente {pid}<br>EOT: {peot:.2f} min<br>D:{pday}|MTB:{pmtb}<extra>EOT (piano)</extra>',
                                 marker=dict(color=color_map_progressive.get(pid, "gray")),
                                 cliponaxis=True,
                                 textposition='inside',
@@ -233,9 +245,8 @@ class Graphs:
                                 x=[xtext],
                                 y=[p.eot],
                                 name=f"Patient {p.id}",
-                                hoverinfo="text",
                                 text=[f"Patient {p.id}: {int(p.eot)}m {int((p.eot % 1) * 60)}s"],
-                                hovertemplate=f'D:{p.day}|MTB:{p.mtb}<extra></extra>',
+                                hovertemplate=f'Paziente {p.id}<br>EOT: {p.eot:.2f} min<br>D:{p.day}|MTB:{p.mtb}<extra>EOT (piano)</extra>',
                                 marker=dict(color=color_map_progressive.get(p.id, "gray")),
                                 cliponaxis=True,
                                 textposition='inside',
@@ -250,9 +261,8 @@ class Graphs:
                             x=[xtext],
                             y=[p.rot],
                             name=f"Patient {p.id} ROT",
-                            hoverinfo="text",
                             text=[f"Patient {p.id} ROT: {int(p.rot)}m {int((p.rot % 1) * 60)}s"],
-                            hovertemplate=f'D:{p.day}|MTB:{p.mtb}<extra></extra>',
+                            hovertemplate=f'Paziente {p.id}<br>ROT: {p.rot:.2f} min<br>D:{p.day}|MTB:{p.mtb}<extra>ROT (reale)</extra>',
                             marker=dict(color=color_map_progressive.get(p.id, "gray"), opacity=0.3),
                             cliponaxis=True,
                             textposition='inside',
@@ -275,7 +285,7 @@ class Graphs:
                 ))
 
                 val = (limite_massimo * Settings.workstations_config[op]) - sum(p.rot for p in patients_real if p.opDay == day)
-                extra_time_pool = (extra_time_pool + val) if val < 0 else 0
+                extra_time_pool = max(0, extra_time_pool + min(0, val))
 
             shapes_by_week[weekNum] = shapes
 
@@ -300,7 +310,7 @@ class Graphs:
         # overlay identico a prima
         fig.update_layout(barmode="overlay")
         fig.update_xaxes(showticklabels=True)
-        fig.update_traces(showlegend=False, hoverinfo="skip", selector=dict(offsetgroup="back"))
+        fig.update_traces(showlegend=False, selector=dict(offsetgroup="back"))
 
         fig.add_annotation(
             x=xline - 1, y=limite_massimo,
@@ -315,6 +325,13 @@ class Graphs:
             showarrow=False,
             yshift=10,
             font=dict(color="green")
+        )
+        fig.add_annotation(
+            x=0.01, y=1.08,
+            xref="paper", yref="paper",
+            text="EOT = barra piena | ROT = barra trasparente",
+            showarrow=False,
+            align="left"
         )
 
         fig.update_layout(
