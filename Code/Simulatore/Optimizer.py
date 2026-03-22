@@ -510,7 +510,7 @@ def execute_week_with_rot(
 
     return executed_patients, overflow_to_next_week, extra_time_pool
 
-def clean_week_with_rot(
+def clean_week_with_rot_v1(
         patients: List[Patient],
         specialty: str,
         week_start_day: int,
@@ -544,7 +544,101 @@ def clean_week_with_rot(
             # espando la lista dei pazienti non eseguiti 
         overflow_to_next_week.extend([p for p in daily_patients if p not in executed])
     return executed, overflow_to_next_week, remeaning_extra_time_pool
-    
+
+def clean_week_with_rot(
+    patients: List[Patient],
+    specialty: str,
+    week_start_day: int,
+    extra_time_pool: float,
+):
+    day_limit = Settings.daily_operation_limit
+    week_days = Settings.week_length_days
+    operationRoom_num = Settings.workstations_config[specialty]
+
+    executed = []
+    overflow_to_next_week = []
+    remaining_extra_time_pool = extra_time_pool
+
+    for today in range(week_start_day, week_start_day + week_days):
+        day_index = today - week_start_day + 1  # 1 → 5
+
+        daily_patients = [p for p in patients if p.opDay == today]
+
+        for opRoom in range(operationRoom_num):
+            room_patients = [p for p in daily_patients if p.workstation == opRoom + 1]
+
+            rot_sum = 0
+
+            for p in room_patients:
+                rot = p.rot if p.rot is not None else p.eot
+                eot = p.eot
+
+                #ci sta nel tempo standard
+                if rot_sum + eot <= day_limit:
+                    rot_sum += rot
+                    executed.append(p)
+                    continue
+
+                #serve overtime
+                overflow_needed = (rot_sum + rot) - day_limit
+
+                #1: paziente urgente (MTBT basso)
+                is_urgent = (today - p.day) >= 0.8 * p.mtb
+
+                if is_urgent:
+                    if remaining_extra_time_pool >= overflow_needed:
+                        print(f"[OVERTIME-URGENT] Day {today} | Room {opRoom+1}")
+                        print(f"  rot_sum={rot_sum:.2f}, rot={rot:.2f}")
+                        print(f"  overflow_needed={overflow_needed:.2f}")
+                        print(f"  pool_before={remaining_extra_time_pool:.2f}")
+
+                        remaining_extra_time_pool -= overflow_needed
+                        rot_sum += rot
+                        executed.append(p)
+
+                        print(f"  pool_after={remaining_extra_time_pool:.2f}\n")
+                        continue
+                    else:
+                        print(f"[SHIFT - NO POOL] Patient {p.id} moved (urgent but no pool)")
+                        break
+
+                #2: formula
+                beta = day_index / week_days #** 2
+
+                lhs = (rot_sum + p.eot) / day_limit
+                rhs = 1 / (beta + 1e-6)
+
+                if lhs <= rhs and remaining_extra_time_pool >= overflow_needed:
+                    print(f"[OVERTIME-SMART] Day {today} | Room {opRoom+1}")
+                    print(f"  beta={beta:.2f}")
+                    print(f"  lhs={lhs:.2f} <= rhs={rhs:.2f}")
+                    print(f"  overflow_needed={overflow_needed:.2f}")
+                    print(f"  pool_before={remaining_extra_time_pool:.2f}")
+
+                    remaining_extra_time_pool -= overflow_needed
+                    rot_sum += rot
+                    executed.append(p)
+
+                    print(f"  pool_after={remaining_extra_time_pool:.2f}\n")
+                    continue
+
+                #3: non conviene usare overtime, shift
+                print(f"[SHIFT] Day {today} | Room {opRoom+1}")
+                print(f"  Patient {p.id} moved to next day/week")
+                print(f"  rot_sum={rot_sum:.2f}, rot={rot:.2f}")
+                print(f"  remaining_day_time={day_limit - rot_sum:.2f}")
+                print(f"  pool={remaining_extra_time_pool:.2f}\n")
+
+                break  #passa al giorno successivo
+
+        #pazienti non eseguiti oggi
+        executed_today_ids = {p.id for p in executed}
+        overflow_today = [p for p in daily_patients if p.id not in executed_today_ids]
+
+        overflow_to_next_week.extend(overflow_today)
+
+    return executed, overflow_to_next_week, remaining_extra_time_pool
+
 
 def optimize_daily_batch_rot(patients: List[Patient], specialty: str) ->list[Patient]:
     """ 
