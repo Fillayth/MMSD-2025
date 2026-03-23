@@ -264,6 +264,45 @@ def resequence_remaining_patients(
 
 
 #region Simulazione settimanale ROT
+def overtime_with_rot(
+    next_p: Patient,
+    rot_sum: float,
+    week_days: int,
+    today: int,
+    day_limit: float,
+    remeaning_extra_time_pool: float,
+):
+    time_left = day_limit - rot_sum
+    print(next_p.mtb, today, day_limit, remeaning_extra_time_pool, time_left)
+
+    if next_p.eot > time_left:
+        # serve overtime
+        overflow_needed = next_p.eot - time_left
+
+        # 1: paziente urgente (MTBT basso)
+        is_urgent = (today - next_p.day) >= (next_p.mtb - today)
+
+        if is_urgent:
+            if remeaning_extra_time_pool >= overflow_needed:
+                remeaning_extra_time_pool -= overflow_needed
+                day_limit += overflow_needed
+                print(f"  pool_after_urgent={remeaning_extra_time_pool:.2f}\n")
+        else:
+            # 2: formula
+            beta = ((today % week_days) + 1) / week_days  # ** 2
+
+            lhs = (rot_sum + next_p.eot) / day_limit
+            rhs = 1 / (beta + 1e-6)
+
+            if lhs <= rhs and remeaning_extra_time_pool >= overflow_needed:
+                remeaning_extra_time_pool -= overflow_needed
+                day_limit += overflow_needed
+                print(f"  pool_after_formula={remeaning_extra_time_pool:.2f}\n")
+
+    return day_limit, remeaning_extra_time_pool
+
+
+
 def clean_week_with_rot(
     patients: List[Patient],
     specialty: str,
@@ -347,6 +386,10 @@ def clean_week_with_rot(
 
             if rot_sum > day_limit:
                 remeaning_extra_time_pool -= (rot_sum - day_limit)
+                day_limit += rot_sum - day_limit
+
+            #overtime assignment
+            day_limit, remeaning_extra_time_pool = overtime_with_rot(next_p, rot_sum, week_days, today, day_limit, remeaning_extra_time_pool)
 
             not_executed_today.extend(remaining)
 
@@ -363,18 +406,6 @@ def clean_week_with_rot(
             overflow_to_next_week.extend(not_executed_today)
 
     return executed, overflow_to_next_week, remeaning_extra_time_pool, stats
-
-
-def simulate_week_rot(planned_patients: List[Patient], specialty: str, week_start_day: int):
-    """Wrapper della simulazione ROT con extra time settimanale da Settings."""
-    executed, overflow, extra_time_left, week_stats = clean_week_with_rot(
-        patients=planned_patients,
-        specialty=specialty,
-        week_start_day=week_start_day,
-        extra_time_pool=Settings.weekly_extra_time_pool,
-    )
-    return executed, overflow, extra_time_left, week_stats
-
 
 #endregion
 
@@ -511,10 +542,11 @@ def optimize_daily_batch_rot_both(patients: List[Patient], specialty: str):
         planned = plan_week_eot(weekly_patients, specialty, current_day)
         result[specialty]["plan_eot"].extend(planned)
 
-        executed, overflow, extra_left, week_stats = simulate_week_rot(
+        executed, overflow, extra_left, week_stats = clean_week_with_rot(
             planned,
             specialty,
             current_day,
+            Settings.weekly_extra_time_pool,
         )
         result[specialty]["realized_rot"].extend(executed)
         result[specialty]["overflow"].append(overflow)
