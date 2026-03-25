@@ -273,19 +273,20 @@ def overtime_with_rot(
     remeaning_extra_time_pool: float,
 ):
     time_left = day_limit - rot_sum
-    print(next_p.mtb, today, day_limit, remeaning_extra_time_pool, time_left)
+    print("time left: ", time_left)
+    #print(next_p.mtb, today, day_limit, remeaning_extra_time_pool, time_left)
 
-    if next_p.eot > time_left:
+    if next_p.rot > time_left:
         # serve overtime
-        overflow_needed = next_p.eot - time_left
+        overflow_needed = next_p.rot - time_left
 
         # 1: paziente urgente (MTBT basso)
-        is_urgent = (today - next_p.day) >= (next_p.mtb - today)
+        is_urgent = (today - next_p.day) >= next_p.mtb #(today - next_p.day) >= (next_p.mtb - today)
 
         if is_urgent:
             if remeaning_extra_time_pool >= overflow_needed:
                 remeaning_extra_time_pool -= overflow_needed
-                day_limit += overflow_needed
+                #day_limit += overflow_needed
                 print(f"  pool_after_urgent={remeaning_extra_time_pool:.2f}\n")
         else:
             # 2: formula
@@ -296,10 +297,10 @@ def overtime_with_rot(
 
             if lhs <= rhs and remeaning_extra_time_pool >= overflow_needed:
                 remeaning_extra_time_pool -= overflow_needed
-                day_limit += overflow_needed
+                #day_limit += overflow_needed
                 print(f"  pool_after_formula={remeaning_extra_time_pool:.2f}\n")
 
-    return day_limit, remeaning_extra_time_pool
+    return remeaning_extra_time_pool
 
 
 
@@ -344,6 +345,7 @@ def clean_week_with_rot(
 
             while remaining:
                 remaining_capacity_eot = (day_limit + remeaning_extra_time_pool) - rot_sum
+
                 if remaining_capacity_eot <= 0:
                     break
 
@@ -359,8 +361,14 @@ def clean_week_with_rot(
                     break
 
                 next_p = resequenced[0]
+                remeaning_extra_time_pool = overtime_with_rot(next_p, rot_sum, week_days, today, day_limit,
+                                                              remeaning_extra_time_pool)
+
                 if next_p.eot > remaining_capacity_eot:
+                    print("...........................................")
                     break
+
+
 
                 rot_sum += next_p.rot
                 executed.append(next_p)
@@ -384,12 +392,17 @@ def clean_week_with_rot(
                 "swap_positions": swap_positions,
             }
 
-            if rot_sum > day_limit:
-                remeaning_extra_time_pool -= (rot_sum - day_limit)
-                day_limit += rot_sum - day_limit
+            '''if rot_sum > (day_limit + (extra_time_pool - remeaning_extra_time_pool)):
+                if (rot_sum - day_limit + (extra_time_pool - remeaning_extra_time_pool)) <= remeaning_extra_time_pool:
+                    remeaning_extra_time_pool -= (rot_sum - day_limit)
+                    #day_limit += rot_sum - day_limit
+                else:
+                    print("NON C'E' ABBASTANZA TEMPO NELLA POOL")'''
 
             #overtime assignment
-            day_limit, remeaning_extra_time_pool = overtime_with_rot(next_p, rot_sum, week_days, today, day_limit, remeaning_extra_time_pool)
+            #remeaning_extra_time_pool = overtime_with_rot(next_p, rot_sum, week_days, today, day_limit, remeaning_extra_time_pool)
+
+            print("pool: ", remeaning_extra_time_pool)
 
             not_executed_today.extend(remaining)
 
