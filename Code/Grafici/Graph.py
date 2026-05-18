@@ -20,7 +20,7 @@ from settings import Settings
 
 class Graphs:
     folderPath: str
-    ShowFigures: bool = True
+    ShowFigures: bool = False
     def __init__(self, folderPath: str = os.path.dirname(os.path.abspath(__file__)) + "/Images"):
         if not os.path.exists(folderPath):
             os.makedirs(folderPath) 
@@ -584,7 +584,7 @@ class Graphs:
 
   
 
-    def MakeGraphs(self, data: PatientListForSpecialties, showGraphs: bool = True, plan_eot: dict | None = None):
+    def MakeGraphs(self, data: PatientListForSpecialties, showGraphs: bool = False, plan_eot: dict | None = None):
         self.ShowFigures = showGraphs
         self.PrintDailyBoxGraph(data, "Distribuzione dei pazienti per ", plan_eot=plan_eot)
         self.PrintTrendLineGraph(data, "Andamento tempo occupato per ")

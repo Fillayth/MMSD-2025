@@ -138,9 +138,6 @@ def generate_csv(
 
             # Genera i dati per ogni paziente della giornata
             for _ in range(patients_today):
-                if used_minutes >= weekly_minutes:
-                    break
-
                 operation_type = random.choice(specialties)
                 params = specialty_params[operation_type]
                 prio_params = priority_params[operation_type]  # Ottieni i parametri di priorità per la specialità
