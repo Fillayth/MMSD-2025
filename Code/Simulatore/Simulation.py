@@ -228,6 +228,66 @@ def group_daily_with_mtb_logic_optimized_rot(
 
 # endregion
 
+# region PUNTO 3
+def rebuild_schedule_using_rot_cplex(
+    schedule: PatientListForSpecialties,
+) -> PatientListForSpecialties:
+
+    from Simulatore.Optimizer import reallocate_week_with_rot_overtime
+
+    result = PatientListForSpecialties()
+
+    for specialty, patients in schedule.items():
+
+        result[specialty] = []
+
+        weeks = {}
+
+        for p in patients:
+
+            week_start = (
+                ((p.opDay - 1) // Settings.week_length_days)
+                * Settings.week_length_days
+            ) + 1
+
+            weeks.setdefault(week_start, []).append(p)
+
+        carryover = []
+
+        for week_start in sorted(weeks.keys()):
+
+            current_week_patients = (
+                carryover +
+                weeks[week_start]
+            )
+
+            planned, carryover = reallocate_week_with_rot_overtime(
+                current_week_patients,
+                specialty,
+                week_start
+            )
+
+            result[specialty].extend(planned)
+
+        next_week = (
+            max(weeks.keys())
+            + Settings.week_length_days
+        )
+
+        while carryover:
+
+            planned, carryover = reallocate_week_with_rot_overtime(
+                carryover,
+                specialty,
+                next_week
+            )
+
+            result[specialty].extend(planned)
+
+            next_week += Settings.week_length_days
+
+    return result
+# endregion
 
 # ─────────────────────────────────────────────────────────────────────────────
 # region  EXPORT  –  Serializzazione dei risultati

@@ -525,6 +525,175 @@ def plan_week_eot(patients: List[Patient], specialty: str, week_start_day: int) 
     return planned
 
 
+
+
+
+def reallocate_week_with_rot_overtime(
+    planned_patients: List[Patient],
+    specialty: str,
+    week_start_day: int,
+) -> Tuple[List[Patient], List[Patient]]:
+
+    if not planned_patients:
+        return [], []
+
+    operating_rooms = Settings.workstations_config[specialty]
+
+    patients_sorted = sorted(planned_patients, key=lambda p: p.id)
+
+    model = pyo.ConcreteModel()
+
+    model.I = pyo.Set(initialize=range(len(patients_sorted)))
+    model.T = pyo.Set(
+        initialize=range(
+            week_start_day,
+            week_start_day + Settings.week_length_days
+        )
+    )
+    model.K = pyo.Set(
+        initialize=range(1, operating_rooms + 1)
+    )
+
+    model.rot = pyo.Param(
+        model.I,
+        initialize={
+            i: patients_sorted[i].rot
+            for i in model.I
+        }
+    )
+
+    model.id_p = pyo.Param(
+        model.I,
+        initialize={
+            i: patients_sorted[i].id
+            for i in model.I
+        }
+    )
+
+    model.x = pyo.Var(
+        model.I,
+        model.T,
+        model.K,
+        domain=pyo.Binary
+    )
+
+    model.overtime = pyo.Var(
+        model.T,
+        model.K,
+        domain=pyo.NonNegativeReals
+    )
+
+    def patient_once(model, i):
+        return sum(
+            model.x[i, t, k]
+            for t in model.T
+            for k in model.K
+        ) <= 1
+
+    model.patient_once = pyo.Constraint(
+        model.I,
+        rule=patient_once
+    )
+
+    def capacity_rule(model, t, k):
+        return (
+            sum(
+                model.rot[i] * model.x[i, t, k]
+                for i in model.I
+            )
+            <=
+            Settings.daily_operation_limit
+            + model.overtime[t, k]
+        )
+
+    model.capacity = pyo.Constraint(
+        model.T,
+        model.K,
+        rule=capacity_rule
+    )
+
+    def overtime_pool_rule(model):
+        return (
+            sum(
+                model.overtime[t, k]
+                for t in model.T
+                for k in model.K
+            )
+            <=
+            Settings.weekly_extra_time_pool
+        )
+
+    model.overtime_pool = pyo.Constraint(
+        rule=overtime_pool_rule
+    )
+
+
+
+    model.obj = pyo.Objective(
+        expr=sum(
+            (1000 - t) * model.x[i, t, k]
+            for i in model.I
+            for t in model.T
+            for k in model.K
+        ),
+        sense=pyo.maximize
+    )
+
+
+    Settings.solver.solve(
+        model,
+        tee=Settings.solver_tee
+    )
+
+    scheduled = []
+    overflow = []
+
+    scheduled_ids = set()
+
+    for i in model.I:
+        assigned = False
+
+        for t in model.T:
+            for k in model.K:
+
+                if pyo.value(model.x[i, t, k]) > 0.5:
+
+                    p = copy.deepcopy(patients_sorted[i])
+
+                    p.opDay = t
+                    p.workstation = k
+
+                    scheduled.append(p)
+
+                    scheduled_ids.add(p.id)
+
+                    assigned = True
+                    break
+
+            if assigned:
+                break
+
+    for p in patients_sorted:
+
+        if p.id not in scheduled_ids:
+
+            overflow.append(copy.deepcopy(p))
+
+    scheduled.sort(
+        key=lambda p: (
+            p.opDay,
+            p.workstation,
+            p.id
+        )
+    )
+
+    return scheduled, overflow
+
+
+
+
+
+
 def optimize_daily_batch_rot_both(patients: List[Patient], specialty: str) -> Dict[str, object]:
     """Run the combined EOT planning and ROT execution workflow."""
     patient_list = sorted(patients, key=lambda patient: patient.day)

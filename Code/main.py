@@ -5,6 +5,103 @@ from Grafici.Graph import Graphs
 from RecordGeneration.PatientRecordGenerator import generate_csv
 from settings import Settings
 from Simulatore.Simulation import read_and_split_by_operation_with_metadata, export_json_schedule, group_daily_with_mtb_logic_optimized_rot
+from Simulatore.Simulation import rebuild_schedule_using_rot_cplex
+
+
+# region stampa a console del punto 3
+
+def print_weekly_rot_summary(schedule):
+
+    print("\n" + "=" * 80)
+    print("ROT + OVERTIME SCHEDULE SUMMARY")
+    print("=" * 80)
+
+    for specialty, patients in schedule.items():
+
+        print(f"\nSPECIALTY: {specialty}")
+
+        if not patients:
+            continue
+
+        max_day = max(p.opDay for p in patients)
+
+        week_start = 1
+
+        while week_start <= max_day:
+
+            week_end = week_start + Settings.week_length_days - 1
+
+            print(
+                f"\nWEEK [{week_start} - {week_end}]"
+            )
+
+            remaining_pool = Settings.weekly_extra_time_pool
+
+            for day in range(week_start, week_end + 1):
+
+                day_patients = [
+                    p for p in patients
+                    if p.opDay == day
+                ]
+
+                used_time = sum(
+                    p.rot for p in day_patients
+                )
+
+                daily_capacity = (
+                        Settings.daily_operation_limit
+                        * Settings.workstations_config[specialty]
+                )
+
+                overtime_used = max(
+                    0,
+                    used_time - daily_capacity
+                )
+
+                remaining_pool -= overtime_used
+
+                delayed = [
+                    p for p in day_patients
+                    if (
+                        p.day + p.mtb
+                        < p.opDay
+                    )
+                ]
+
+                print(
+                    f"Day {day:2d} | "
+                    f"Patients: {len(day_patients):3d} | "
+                    f"ROT used: {used_time:7.1f} min | "
+                    f"OT used: {overtime_used:6.1f} min | "
+                    f"OT left: {remaining_pool:6.1f} min | "
+                    f"Late patients: {len(delayed):2d}"
+                )
+
+            for day in range(week_start, week_end + 1):
+
+                for room in [1, 2]:
+                    room_patients = [
+                        p for p in patients
+                        if p.opDay == day
+                           and p.workstation == room
+                    ]
+
+                    room_rot = sum(
+                        p.rot
+                        for p in room_patients
+                    )
+
+                    print(
+                        f"Day {day} Room {room}: "
+                        f"{len(room_patients)} patients "
+                        f"ROT={room_rot:.1f}"
+                    )
+
+            week_start += Settings.week_length_days
+
+    print("=" * 80)
+
+# endregion
 
 
 # Main function to generate patient records and weekly reports
@@ -36,6 +133,10 @@ def main():
 
  
     schedule = group_daily_with_mtb_logic_optimized_rot(all_patient_records)
+
+    schedule_rot_cplex = rebuild_schedule_using_rot_cplex(schedule) #TODO creare un nuovo grafico per il punto 3
+    print_weekly_rot_summary(schedule_rot_cplex) # TODO rimuovere quando ci sono i grafici
+
     # schedule = group_daily_with_mtb_logic_optimized(all_patient_records) #togliere il commento per usare la versione precedente
     # schedule = group_daily_with_mtb_logic_rot(all_patient_records)
     # schedule = group_daily_with_mtb_logic_optimized_rot(all_patient_records)
