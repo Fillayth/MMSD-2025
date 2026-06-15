@@ -134,8 +134,8 @@ def main():
  
     schedule = group_daily_with_mtb_logic_optimized_rot(all_patient_records)
 
-    # schedule_rot_cplex = rebuild_schedule_using_rot_cplex(all_patient_records) #TODO creare un nuovo grafico per il punto 3
-    schedule_rot_cplex = rebuild_schedule_using_rot_cplex(schedule) #TODO creare un nuovo grafico per il punto 3
+    schedule_rot_cplex = rebuild_schedule_using_rot_cplex(all_patient_records) #TODO creare un nuovo grafico per il punto 3
+    # schedule_rot_cplex = rebuild_schedule_using_rot_cplex(schedule) #TODO creare un nuovo grafico per il punto 3
     print_weekly_rot_summary(schedule_rot_cplex) # TODO rimuovere quando ci sono i grafici
 
     # schedule = group_daily_with_mtb_logic_optimized(all_patient_records) #togliere il commento per usare la versione precedente
