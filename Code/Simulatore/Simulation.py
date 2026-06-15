@@ -245,46 +245,53 @@ def rebuild_schedule_using_rot_cplex(
 
         for p in patients:
 
-            week_start = (
-                ((p.opDay - 1) // Settings.week_length_days)
-                * Settings.week_length_days
-            ) + 1
+            # if p.opDay == -1:
+            #     continue
 
-            weeks.setdefault(week_start, []).append(p)
+            # Calculate week number (starting from Settings.start_week_scheduling)
+            week_num = ((p.day - 1) // Settings.week_length_days) + Settings.start_week_scheduling
+
+            weeks.setdefault(week_num, []).append(p)
 
         carryover = []
 
-        for week_start in sorted(weeks.keys()):
+        for week_num in sorted(weeks.keys()):
 
             current_week_patients = (
                 carryover +
-                weeks[week_start]
+                weeks[week_num]
             )
+
+            # Calculate the actual starting day for this week number
+            # Formula: day = (week_num - 1 + start_week) * week_length_days
+            week_start_day = (week_num - 1 + Settings.start_week_scheduling) * Settings.week_length_days
 
             planned, carryover = reallocate_week_with_rot_overtime(
                 current_week_patients,
                 specialty,
-                week_start
+                week_start_day
             )
 
             result[specialty].extend(planned)
 
         next_week = (
             max(weeks.keys())
-            + Settings.week_length_days
+            + 1
         )
 
-        while carryover:
+        # while carryover:
 
-            planned, carryover = reallocate_week_with_rot_overtime(
-                carryover,
-                specialty,
-                next_week
-            )
+        #     week_start_day = (next_week - 1 + Settings.start_week_scheduling) * Settings.week_length_days
 
-            result[specialty].extend(planned)
+        #     planned, carryover = reallocate_week_with_rot_overtime(
+        #         carryover,
+        #         specialty,
+        #         week_start_day
+        #     )
 
-            next_week += Settings.week_length_days
+        #     result[specialty].extend(planned)
+
+        #     next_week += 1
 
     return result
 # endregion

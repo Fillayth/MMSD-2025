@@ -501,6 +501,8 @@ def plan_week_eot(patients: List[Patient], specialty: str, week_start_day: int) 
     operating_rooms = Settings.workstations_config[specialty]
 
     model = PyomoModel_0(patients, operating_rooms, week_start_day)
+    Settings.solver.options['mipgap'] = 0.01
+    Settings.solver.options['timelimit'] = 300
     Settings.solver.solve(model, tee=Settings.solver_tee)
 
     planned = [
@@ -639,7 +641,8 @@ def reallocate_week_with_rot_overtime(
         sense=pyo.maximize
     )
 
-
+    Settings.solver.options['mipgap'] = 0.01
+    Settings.solver.options['timelimit'] = 300
     Settings.solver.solve(
         model,
         tee=Settings.solver_tee

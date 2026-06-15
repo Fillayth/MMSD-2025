@@ -134,6 +134,7 @@ def main():
  
     schedule = group_daily_with_mtb_logic_optimized_rot(all_patient_records)
 
+    # schedule_rot_cplex = rebuild_schedule_using_rot_cplex(all_patient_records) #TODO creare un nuovo grafico per il punto 3
     schedule_rot_cplex = rebuild_schedule_using_rot_cplex(schedule) #TODO creare un nuovo grafico per il punto 3
     print_weekly_rot_summary(schedule_rot_cplex) # TODO rimuovere quando ci sono i grafici
 
@@ -152,7 +153,7 @@ def main():
         print(f"[WARN] plan_eot non letto: {e}")
 
     Graphs(f"{resultsData_folder}{Settings.images_folder}").MakeGraphs(schedule, plan_eot=plan_eot)
-    Graphs(f"{resultsData_folder + 'rot_cplex/'}{Settings.images_folder}").MakeGraphs(schedule_rot_cplex, plan_eot=plan_eot)
+    Graphs(f"{resultsData_folder + 'rot_cplex/'}{Settings.images_folder}").MakeGraphs(schedule_rot_cplex, plan_eot=plan_eot, use_rot_as_primary=True)
 
 
 if __name__ == "__main__":
