@@ -541,7 +541,20 @@ def reallocate_week_with_rot_overtime(
 
     operating_rooms = Settings.workstations_config[specialty]
 
-    patients_sorted = sorted(planned_patients, key=lambda p: p.id)
+    valid_patients = [
+        p for p in planned_patients
+        if (p.day + p.mtb) >= week_start_day
+    ]
+
+    overflow = [
+        p for p in planned_patients
+        if (p.day + p.mtb) < week_start_day
+    ]
+
+    for p in overflow:
+        p.overdue = True
+
+    patients_sorted = sorted(valid_patients, key=lambda p: p.id)
 
     model = pyo.ConcreteModel()
 
@@ -572,6 +585,14 @@ def reallocate_week_with_rot_overtime(
         }
     )
 
+    model.mtb = pyo.Param(
+        model.I,
+        initialize={
+            i: patients_sorted[i].mtb
+            for i in model.I
+        }
+    )
+
     model.x = pyo.Var(
         model.I,
         model.T,
@@ -591,6 +612,30 @@ def reallocate_week_with_rot_overtime(
             for t in model.T
             for k in model.K
         ) <= 1
+
+    model.day = pyo.Param(
+        model.I,
+        initialize={
+            i: patients_sorted[i].day
+            for i in model.I
+        }
+    )
+
+    def hard_deadline_rule(model, i, t, k):
+
+        deadline = model.day[i] + model.mtb[i]
+
+        if t > deadline:
+            return model.x[i, t, k] == 0
+
+        return pyo.Constraint.Skip
+
+    model.deadline = pyo.Constraint(
+        model.I,
+        model.T,
+        model.K,
+        rule=hard_deadline_rule
+    )
 
     model.patient_once = pyo.Constraint(
         model.I,
@@ -629,11 +674,9 @@ def reallocate_week_with_rot_overtime(
         rule=overtime_pool_rule
     )
 
-
-
     model.obj = pyo.Objective(
         expr=sum(
-            (1000 - t) * model.x[i, t, k]
+            (100000 + (1000 - t)) * model.x[i, t, k]
             for i in model.I
             for t in model.T
             for k in model.K
@@ -649,7 +692,7 @@ def reallocate_week_with_rot_overtime(
     )
 
     scheduled = []
-    overflow = []
+    overflow = overflow.copy()
 
     scheduled_ids = set()
 
