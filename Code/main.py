@@ -142,7 +142,7 @@ def main():
     # schedule = group_daily_with_mtb_logic_rot(all_patient_records)
     # schedule = group_daily_with_mtb_logic_optimized_rot(all_patient_records)
     scheduleJson_path = export_json_schedule(schedule.to_dict(), resultsData_folder)
-    scheduleJson_path = export_json_schedule(schedule_rot_cplex.to_dict(), resultsData_folder + "rot_cplex/")
+    scheduleJson_path = export_json_schedule(schedule_rot_cplex.to_dict(), resultsData_folder + "/rot_cplex/")
     # caricare alla fine delle schedulazioni tutti i risultati e gestire in qualche modo la visualizzazione 
     plan_eot = None
     try:
@@ -153,8 +153,14 @@ def main():
         print(f"[WARN] plan_eot non letto: {e}")
 
     Graphs(f"{resultsData_folder}{Settings.images_folder}").MakeGraphs(schedule, plan_eot=plan_eot)
-    Graphs(f"{resultsData_folder + 'rot_cplex/'}{Settings.images_folder}").MakeGraphs(schedule_rot_cplex, plan_eot=plan_eot, use_rot_as_primary=True)
+    Graphs(f"{resultsData_folder + '/rot_cplex/'}{Settings.images_folder}").MakeGraphs(schedule_rot_cplex, plan_eot=plan_eot, use_rot_as_primary=True)
+    dictSchedules = {
+        "Stimato": schedule,
+        "PostSchedulato": schedule_rot_cplex
+    }
+    Graphs(f"{resultsData_folder}").MostraTabellaConfrontoPlotly(dictSchedules)
 
+    print(f"Graphs and tables generated in {resultsData_folder}")
 
 if __name__ == "__main__":
     main()  

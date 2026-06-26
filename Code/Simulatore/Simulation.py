@@ -24,7 +24,6 @@ if os.path.basename(__file__) != "main.py":
 # ── Moduli interni ───────────────────────────────────────────────────────────
 from CommonClass.Patient import Patient
 from CommonClass.PatientListForSpecialties import PatientListForSpecialties
-from CommonClass.Week import Week
 from settings import Settings
 from Simulatore.Optimizer import optimize_daily_batch_rot_both
 

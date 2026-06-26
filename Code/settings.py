@@ -30,7 +30,7 @@ class Settings:
     # Total hours to fill per week
     week_hours_to_fill = 80  # 80 hours
     # Number of weeks to fill
-    weeks_to_fill = 4
+    weeks_to_fill = 6
     # Distribuzione usata per generare il numero di nuovi pazienti per giorno.
     # Valori supportati: "normal", "poisson".
     daily_patient_arrival_distribution = "normal"
