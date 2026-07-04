@@ -13,6 +13,7 @@ from collections import defaultdict
 import json
 import os
 import sys
+import copy
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -24,6 +25,121 @@ if os.path.basename(__file__) != "main.py":
 from CommonClass.PatientListForSpecialties import PatientListForSpecialties
 from settings import Settings
 
+def CreateScheduleWithReplanned(schedule: dict, plan_eot_input: dict | None) -> dict:
+    """Crea una nuova istanza dello schedule integrando i dati di pianificazione EOT.
+    
+    Risolve anche il problema dei pazienti (come l'ID 1398) presenti SOLO nel piano
+    di ripianificazione (plan_eot) e originariamente assenti dallo schedule di base.
+    """
+    cloned_schedule = copy.deepcopy(schedule)
+    
+    if not plan_eot_input:
+        return cloned_schedule
+
+    # 1. AUTO-FIX: Estrazione della sezione corretta se passato l'intero file JSON
+    if isinstance(plan_eot_input, dict) and "plan_eot" in plan_eot_input:
+        plan_eot = plan_eot_input["plan_eot"]
+    else:
+        plan_eot = plan_eot_input
+
+    for op, patients in cloned_schedule.items():
+        plan_list = plan_eot.get(op, [])
+        if not plan_list:
+            continue
+            
+        # 2. Mappa dei ripianificati indicizzata per ID (stringa)
+        latest_plan_by_id = {}
+        for pp in plan_list:
+            if not isinstance(pp, dict):
+                continue
+            pid = pp.get("id", None)
+            if pid is None:
+                continue
+            latest_plan_by_id[str(pid)] = pp
+            
+        updated_patients = []
+        seen_ids = set() 
+        
+        # 3. Aggiornamento dei pazienti ESISTENTI nello schedule originale
+        for p in patients:
+            is_dict = isinstance(p, dict)
+            p_id = p.get("id") if is_dict else getattr(p, "id", None)
+            
+            if p_id is None:
+                continue
+                
+            p_id_str = str(p_id)
+            
+            if p_id_str in latest_plan_by_id:
+                pp = latest_plan_by_id[p_id_str]
+                
+                # Aggiorna i campi del record esistente
+                if is_dict:
+                    p["opDay"] = pp.get("opDay", p.get("opDay"))
+                    p["workstation"] = pp.get("workstation", p.get("workstation"))
+                    p["eot"] = float(pp.get("eot", 0) or p.get("eot", 0))
+                    p["day"] = pp.get("day", p.get("day"))
+                    if "mtb" in pp:
+                        p["mtb"] = pp["mtb"]
+                    if "rot" in pp:
+                        p["rot"] = float(pp["rot"] or p.get("rot", 0))
+                else:
+                    p.opDay = pp.get("opDay", p.opDay)
+                    p.workstation = pp.get("workstation", p.workstation)
+                    p.eot = float(pp.get("eot", 0) or p.eot)
+                    p.day = pp.get("day", p.day)
+                    if "mtb" in pp:
+                        p.mtb = pp["mtb"]
+                    if "rot" in pp:
+                        p.rot = float(pp["rot"] or p.rot)
+            
+            if p_id_str not in seen_ids:
+                seen_ids.add(p_id_str)
+                updated_patients.append(p)
+        
+        # 4. FIX FONDAMENTALE: Aggiunta dei pazienti MANCANTI (Presenti solo in plan_eot)
+        # Questo blocco intercetta l'ID 1398 e lo inserisce nello schedule finale
+        for pid_str, pp in latest_plan_by_id.items():
+            if pid_str not in seen_ids:
+                seen_ids.add(pid_str)
+                
+                # Identifichiamo se lo schedule usa Dizionari o Oggetti custom (es. istanze di Patient)
+                is_dict_mode = True
+                if patients and not isinstance(patients[0], dict):
+                    is_dict_mode = False
+                    
+                if is_dict_mode:
+                    # Se lavoriamo con JSON/Dizionari grezzi
+                    new_p = {
+                        "id": pp.get("id"),
+                        "eot": float(pp.get("eot", 0) or 0),
+                        "rot": float(pp.get("rot", 0) or 0),
+                        "day": pp.get("day", 0),
+                        "mtb": pp.get("mtb", 0),
+                        "opDay": pp.get("opDay", -1),
+                        "workstation": pp.get("workstation", 0),
+                        "overdue": pp.get("overdue", False)
+                    }
+                    updated_patients.append(new_p)
+                else:
+                    # Se lavoriamo con Oggetti, cloniamo il tipo e i metodi di un elemento esistente
+                    try:
+                        new_p = copy.deepcopy(patients[0])
+                        new_p.id = pp.get("id")
+                        new_p.opDay = pp.get("opDay", -1)
+                        new_p.workstation = pp.get("workstation", 0)
+                        new_p.eot = float(pp.get("eot", 0) or 0)
+                        new_p.rot = float(pp.get("rot", 0) or 0)
+                        new_p.day = pp.get("day", 0)
+                        new_p.mtb = pp.get("mtb", 0)
+                        new_p.overdue = pp.get("overdue", False)
+                        updated_patients.append(new_p)
+                    except Exception:
+                        pass
+                        
+        cloned_schedule[op] = updated_patients
+
+    return cloned_schedule
 
 class Graphs:
     """Gestore della creazione di grafici Plotly per l'analisi della schedulazione operatoria."""
@@ -165,6 +281,102 @@ class Graphs:
     # print("Max:", max_val)
 
     '''
+    def PrintWaitingTimeBoxPlotGraph_withEOTplanned(
+        self, operations: PatientListForSpecialties, basetitle: str, plan_eot: dict | None = None, use_rot_as_primary: bool = False
+    ) -> None:
+        """Crea box plot dei tempi di attesa per settimana e specialità, integrando i dati pianificati.
+        
+        Args:
+            operations: PatientListForSpecialties con i dati reali
+            basetitle: Titolo base del grafico
+            plan_eot: Dizionario contenente la programmazione pianificata EOT
+            use_rot_as_primary: Se True usa i dati reali, altrimenti usa il pianificato (EOT)
+        """
+        for op, patients_real in operations.items():
+            if not patients_real:
+                continue
+                
+            title = basetitle + op
+            
+            # --- 1. Estrazione e pulizia dati PIANIFICATI (EOT) ---
+            plan_list = plan_eot.get(op, []) if plan_eot is not None else None
+            if plan_list is not None:
+                latest_plan_by_id = {}
+                for pp in plan_list:
+                    if not isinstance(pp, dict):
+                        continue
+                    pid = pp.get("id", None)
+                    if pid is None:
+                        continue
+                    latest_plan_by_id[pid] = pp
+                plan_list = list(latest_plan_by_id.values())
+
+            # --- 2. Selezione del Dataset e Deduplicazione ID ---
+            rows = []
+            if use_rot_as_primary or plan_list is None:
+                # Dati REALI: garantiamo l'unicità dell'ID paziente
+                seen_ids = set()
+                for p in patients_real:
+                    if p.id not in seen_ids:
+                        seen_ids.add(p.id)
+                        rows.append({
+                            "ID": p.id,
+                            "Data inserimento": p.day,
+                            "MTB": getattr(p, 'mtb', None),
+                            "Data operazione": p.opDay
+                        })
+            else:
+                # Dati PIANIFICATI (già deduplicati globalmente per ID nel punto 1)
+                for pp in plan_list:
+                    rows.append({
+                        "ID": pp.get("id"),
+                        "Data inserimento": pp.get("day", 0),
+                        "MTB": pp.get("mtb", None),
+                        "Data operazione": pp.get("opDay", -1)
+                    })
+
+            # --- 3. Costruzione DataFrame e calcolo metriche ---
+            df = pd.DataFrame(rows)
+            
+            # Consideriamo solo i pazienti che hanno effettivamente una data di operazione valida
+            df = df[df['Data operazione'] != -1].dropna(subset=['Data operazione'])
+            
+            if df.empty:
+                continue
+
+            df['Tempo_attesa'] = df['Data operazione'] - df['Data inserimento']
+            
+            # Calcola il numero massimo di settimane basandosi sul dataset scelto
+            last_week = int(df['Data operazione'].max() // Settings.week_length_days)
+            
+            # --- 4. Generazione dei Box Plot per Settimana ---
+            data = []
+            for weekNum in range(last_week + 1):
+                # Manteniamo la logica di segmentazione originaria dei giorni della settimana
+                week_start = (weekNum - 1) * Settings.week_length_days + 1
+                week_end = weekNum * Settings.week_length_days
+                
+                waiting_times = df[df['Data operazione'].between(week_start, week_end)]['Tempo_attesa']
+                
+                data.append(go.Box(
+                    y=waiting_times,
+                    name=f"Sett {weekNum}",
+                    boxmean='sd',
+                    marker_color='indianred'
+                ))
+            
+            # --- 5. Costruzione del Grafico Layout ---
+            fig = go.Figure(data)
+            
+            metric_label = "Dati REALI (ROT)" if use_rot_as_primary else "Dati PIANIFICATI (EOT)"
+            fig.update_layout(
+                title=f"{title} - {metric_label}",
+                yaxis_title="Tempo di attesa (giorni)",
+                xaxis_title="Settimane",
+                template="plotly_white"
+            )
+            
+            self.ShowFigure(fig, name=f"WaitingTimeBoxPlot_withEOTplanned_{op}")
 
     def PrintWaitingTimeBoxPlotGraph(
         self, operations: PatientListForSpecialties, basetitle: str, use_rot_as_primary: bool = False
@@ -223,7 +435,7 @@ class Graphs:
             xline = Settings.week_length_days * Settings.workstations_config[op]
             title = baseTitle + op
 
-            # --- pianificato EOT (lista di dict) ---
+            # --- Pianificato EOT (lista di dict)  ---
             plan_list = plan_eot.get(op, []) if plan_eot is not None else None
             if plan_list is not None:
                 latest_plan_by_id = {}
@@ -242,9 +454,7 @@ class Graphs:
             fig = go.Figure()
 
             # Colori: usa l’unione degli ID (pianificato + reale) così restano coerenti
-            ids = set()
-            for p in patients_real:
-                ids.add(p.id)
+            ids = set(p.id for p in patients_real)
             if plan_list is not None:
                 for pp in plan_list:
                     if isinstance(pp, dict) and "id" in pp:
@@ -283,7 +493,7 @@ class Graphs:
                     for room_id in range(Settings.workstations_config[op]):
 
                         # REAL (ROT) -> pazienti reali
-                        real_day_room = [p for p in patients_real if p.workstation == room_id + 1 and p.opDay == day]
+                        real_day_room = [p for p in patients_real if p.workstation == room_id + 1 and p.opDay == day]                        
                         minsRot = round(sum(p.rot for p in real_day_room), 2)
 
                         # PLAN (EOT) -> dict dal pianificato, se disponibile; altrimenti fallback: usa gli stessi pazienti reali
@@ -447,7 +657,6 @@ class Graphs:
                 for idx in trace_idx_by_week[weekNum]:
                     if 0 <= idx < total_traces:
                         visible[idx] = True
-
                 buttons.append(dict(
                     label=f"Settimana {weekNum}",
                     method="update",
@@ -457,8 +666,6 @@ class Graphs:
                     ]
                 ))
 
-            # overlay identico a prima
-            fig.update_layout(barmode="overlay")
             fig.update_xaxes(showticklabels=True)
             fig.update_traces(showlegend=False, selector=dict(offsetgroup="back"))
 
@@ -502,7 +709,7 @@ class Graphs:
             )
 
             self.ShowFigure(fig, name=f"DailyBoxGraph_withTraslatedPatients_{op}")
-
+                
     def PrintDailyBoxGraph(self, operation: PatientListForSpecialties, baseTitle: str, use_rot_as_primary: bool = False):
         limite_massimo = Settings.daily_operation_limit
         
@@ -631,8 +838,6 @@ class Graphs:
                     ]
                 ))
 
-            # Layout finale del grafico Plotly (Mantengo overlay per la sovrapposizione front/back)
-            fig.update_layout(barmode="overlay")
             fig.update_xaxes(showticklabels=True)
             fig.update_traces(showlegend=False, selector=dict(offsetgroup="back"))
 
@@ -667,6 +872,128 @@ class Graphs:
             )
 
             self.ShowFigure(fig, name=f"DailyBoxGraph_{op}")
+
+    def PrintTrendLineGraph_withEOTplanned(
+        self, operation: PatientListForSpecialties, baseTitle: str, plan_eot: dict | None = None, use_rot_as_primary: bool = False
+    ) -> None:
+        """Crea grafico di tendenza del carico operatorio con doppio asse Y senza duplicati di ID paziente."""
+        for op, patients_real in operation.items():
+            if not patients_real:
+                continue
+                
+            title = baseTitle + op
+            
+            # --- 1. Pulizia globale del pianificato ---
+            plan_list = plan_eot.get(op, []) if plan_eot is not None else None
+            if plan_list is not None:
+                latest_plan_by_id = {}
+                for pp in plan_list:
+                    if not isinstance(pp, dict):
+                        continue
+                    pid = pp.get("id", None)
+                    if pid is None:
+                        continue
+                    latest_plan_by_id[pid] = pp
+                plan_list = sorted(
+                    latest_plan_by_id.values(),
+                    key=lambda pp: (pp.get("opDay", 0), pp.get("workstation", 0), pp.get("id", 0)),
+                )
+
+            last_day_real = max(p.opDay for p in patients_real) if patients_real else 0
+            last_day_plan = max((pp.get("opDay", 0) for pp in plan_list), default=0) if plan_list is not None else 0
+            last_day = max(last_day_real, last_day_plan)
+            
+            num_weeks = (last_day // Settings.week_length_days) + 1
+            total_days = num_weeks * Settings.week_length_days
+            days_title = [f"Day:{day}" for day in range(total_days)]
+            
+            start_index = 0
+            if Settings.start_week_scheduling >= 1:
+                start_day = f"Day:{Settings.start_week_scheduling * Settings.week_length_days}"
+                if start_day in days_title:
+                    start_index = days_title.index(start_day)
+            
+            room_ids = range(Settings.workstations_config[op])
+            room_free_time = {room_id + 1: [] for room_id in room_ids}
+            room_patient = {room_id + 1: [] for room_id in room_ids}
+            
+            for d in range(total_days):
+                for room_id in room_ids:
+                    
+                    # --- Filtro Reali Univoci per Giorno/Sala ---
+                    raw_real = [p for p in patients_real if p.workstation == room_id + 1 and p.opDay == d]
+                    daily_patients_real = []
+                    seen_real = set()
+                    for p in raw_real:
+                        if p.id not in seen_real:
+                            seen_real.add(p.id)
+                            daily_patients_real.append(p)
+                    
+                    # --- Filtro Pianificati Univoci per Giorno/Sala ---
+                    if plan_list is not None:
+                        raw_plan = [
+                            pp for pp in plan_list 
+                            if pp.get("workstation", None) == room_id + 1 and pp.get("opDay", None) == d
+                        ]
+                        daily_patients_plan = []
+                        seen_plan = set()
+                        for pp in raw_plan:
+                            pid = pp.get("id")
+                            if pid not in seen_plan:
+                                seen_plan.add(pid)
+                                daily_patients_plan.append(pp)
+                    else:
+                        daily_patients_plan = None
+
+                    # Conteggio corretto senza duplicati
+                    if use_rot_as_primary:
+                        patient_count = len(daily_patients_real)
+                    else:
+                        patient_count = len(daily_patients_plan) if daily_patients_plan is not None else len(daily_patients_real)
+
+                    # Calcolo metriche di tempo basate sulle liste deduplicate
+                    if use_rot_as_primary:
+                        time_metric = sum(p.rot for p in daily_patients_real)
+                    else:
+                        if daily_patients_plan is not None:
+                            time_metric = sum(float(pp.get("eot", 0) or 0) for pp in daily_patients_plan)
+                        else:
+                            time_metric = sum(p.eot for p in daily_patients_real)
+                    
+                    free_time = Settings.daily_operation_limit - time_metric
+                    room_free_time[room_id + 1].append(free_time)
+                    room_patient[room_id + 1].append(patient_count)
+            
+            fig = make_subplots(specs=[[{"secondary_y": True}]])
+            
+            for room_id, counts in room_patient.items():
+                fig.add_trace(go.Bar(
+                    x=days_title, y=counts,
+                    name=f"OR:{room_id} Pazienti", opacity=0.6,
+                    hovertemplate='%{y}<extra>Pazienti</extra>'
+                ), secondary_y=True)
+            
+            for room_id, times in room_free_time.items():
+                fig.add_trace(go.Scatter(
+                    x=days_title, y=times,
+                    name=f"OR:{room_id} Tempo libero", mode='lines+markers',
+                    hovertemplate='%{y:.2f}<extra>Minuti Liberi</extra>'
+                ), secondary_y=False)
+            
+            if Settings.start_week_scheduling >= 1:
+                fig.add_vline(
+                    x=start_index - 0.5, line={"color": "orange", "width": 2, "dash": "dash"},
+                    annotation_text="Inizio Schedulazione", annotation_position="top right", annotation_font_color="orange"
+                )
+            
+            metric_label = "Basato su ROT (Reale)" if use_rot_as_primary else "Basato su EOT (Pianificato)"
+            fig.update_layout(
+                title=f"{title} - {metric_label}", xaxis_title="Giorno", template="plotly_white", barmode='group'
+            )
+            fig.update_yaxes(title_text="Tempo libero (minuti)", secondary_y=False)
+            fig.update_yaxes(title_text="Numero pazienti", secondary_y=True)
+            
+            self.ShowFigure(fig, name=f"TrendLineGraph_withEOTplanned_{op}")
 
     def PrintTrendLineGraph(
         self, operation: PatientListForSpecialties, baseTitle: str, use_rot_as_primary: bool = False
@@ -756,7 +1083,140 @@ class Graphs:
             fig.update_yaxes(title_text="Numero pazienti", secondary_y=True)
             
             self.ShowFigure(fig, name=f"TrendLineGraph_{op}")
+
+    def PrintWaitingListLineGraph_withEOTplanned(
+    self, operations: PatientListForSpecialties, baseTitle: str, plan_eot: dict | None = None, use_rot_as_primary: bool = False
+) -> None:
+        """Crea grafico dell'evoluzione della lista d'attesa nel tempo.
+        
+        Mostra: pazienti aggiunti, pazienti operati, e pazienti ancora in attesa.
+        
+        Args:
+            operations: PatientListForSpecialties con i dati reali
+            baseTitle: Titolo base del grafico
+            plan_eot: Dizionario contenente la programmazione pianificata EOT
+            use_rot_as_primary: Se True usa i dati reali, altrimenti usa il pianificato (EOT)
+        """
+        for op, patients_real in operations.items():
+            if not patients_real:
+                continue
+                
+            title = baseTitle + op
             
+            # --- 1. Estrazione e pulizia dati PIANIFICATI (EOT) ---
+            plan_list = plan_eot.get(op, []) if plan_eot is not None else None
+            if plan_list is not None:
+                latest_plan_by_id = {}
+                for pp in plan_list:
+                    if not isinstance(pp, dict):
+                        continue
+                    pid = pp.get("id", None)
+                    if pid is None:
+                        continue
+                    latest_plan_by_id[pid] = pp
+                plan_list = sorted(
+                    latest_plan_by_id.values(),
+                    key=lambda pp: (pp.get("opDay", 0), pp.get("workstation", 0), pp.get("id", 0)),
+                )
+
+            # --- 2. Raggruppamento e Deduplicazione con Set (ID unici per giorno) ---
+            new_patient_list = defaultdict(set)
+            resolved_list = defaultdict(set)
+            
+            # Selezione del dataset in base alla metrica primaria scelta
+            if use_rot_as_primary or plan_list is None:
+                for p in patients_real:
+                    new_patient_list[p.day].add(p.id)
+                    if p.opDay != -1 and p.opDay is not None:
+                        resolved_list[p.opDay].add(p.id)
+            else:
+                for pp in plan_list:
+                    pid = pp.get("id")
+                    pday = pp.get("day")
+                    pop_day = pp.get("opDay", -1)
+                    if pid is not None:
+                        if pday is not None:
+                            new_patient_list[pday].add(pid)
+                        if pop_day != -1 and pop_day is not None:
+                            resolved_list[pop_day].add(pid)
+            
+            # Ordina i dizionari per giorno
+            new_patient_list = dict(sorted(new_patient_list.items()))
+            resolved_list = dict(sorted(resolved_list.items()))
+            
+            # Conta i pazienti UNICI per giorno
+            new_patient_count = {day: len(ids) for day, ids in new_patient_list.items()}
+            resolved_count = {day: len(ids) for day, ids in resolved_list.items()}
+            
+            # --- 3. Calcolo dei pazienti in attesa cumulativi ---
+            waiting_count = {}
+            total_waiting = 0
+            max_day = max(
+                max(new_patient_count.keys(), default=0),
+                max(resolved_count.keys(), default=0)
+            )
+            
+            # Scansione lineare per il calcolo cumulativo (incluso eventuale giorno 0)
+            for day in range(max_day + 1):
+                total_waiting += new_patient_count.get(day, 0)
+                total_waiting -= resolved_count.get(day, 0)
+                waiting_count[day] = total_waiting
+            
+            # --- 4. Costruzione del Grafico Plotly ---
+            fig = go.Figure()
+            
+            # Traccia: Pazienti Aggiunti
+            fig.add_trace(go.Scatter(
+                x=list(new_patient_count.keys()),
+                y=list(new_patient_count.values()),
+                mode='lines+markers',
+                name='Pazienti Aggiunti',
+                line={"color": 'blue'},
+                hovertemplate='%{y}<extra>Aggiunti</extra>'
+            ))
+            
+            # Traccia: Pazienti Operati
+            fig.add_trace(go.Scatter(
+                x=list(resolved_count.keys()),
+                y=list(resolved_count.values()),
+                mode='lines+markers',
+                name='Pazienti Operati',
+                line={"color": 'green'},
+                hovertemplate='%{y}<extra>Operati</extra>'
+            ))
+            
+            # Traccia: Pazienti in Attesa (Cumulativo)
+            fig.add_trace(go.Scatter(
+                x=list(waiting_count.keys()),
+                y=list(waiting_count.values()),
+                mode='lines+markers',
+                name='Pazienti in Attesa',
+                line={"color": 'red'},
+                hovertemplate='%{y}<extra>In attesa</extra>'
+            ))
+            
+            # Linea inizio schedulazione
+            if Settings.start_week_scheduling >= 1:
+                start_day = Settings.start_week_scheduling * Settings.week_length_days
+                fig.add_vline(
+                    x=start_day,
+                    line={"color": "orange", "width": 2, "dash": "dash"},
+                    annotation_text="Inizio Schedulazione",
+                    annotation_position="top right",
+                    annotation_font_color="orange"
+                )
+            
+            metric_label = "Dati REALI (ROT)" if use_rot_as_primary else "Dati PIANIFICATI (EOT)"
+            fig.update_layout(
+                title=f"{title} - {metric_label}",
+                xaxis_title="Giorno",
+                yaxis_title="Numero Pazienti",
+                template="plotly_white",
+                hovermode='x unified'
+            )
+            
+            self.ShowFigure(fig, name=f"WaitingListLineGraph_withEOTplanned_{op}")
+
     def PrintWaitingListLineGraph(
         self, operations: PatientListForSpecialties, baseTitle: str, use_rot_as_primary: bool = False
     ) -> None:
@@ -954,10 +1414,14 @@ class Graphs:
         
         trend_title = "Carico operatorio - "
         self.PrintTrendLineGraph(data, trend_title, use_rot_as_primary=use_rot_as_primary)
+        self.PrintTrendLineGraph_withEOTplanned(data, trend_title, plan_eot=plan_eot, use_rot_as_primary=use_rot_as_primary)
         
         wait_title = "Lista attesa - "
         self.PrintWaitingListLineGraph(data, wait_title, use_rot_as_primary=use_rot_as_primary)
+        self.PrintWaitingListLineGraph_withEOTplanned(data, wait_title, plan_eot=plan_eot, use_rot_as_primary=use_rot_as_primary)
+
         self.PrintWaitingTimeBoxPlotGraph(data, "Tempi attesa - ", use_rot_as_primary=use_rot_as_primary)
+        self.PrintWaitingTimeBoxPlotGraph_withEOTplanned(data, "Tempi attesa - ", plan_eot=plan_eot, use_rot_as_primary=use_rot_as_primary)
 
 
 if __name__ == "__main__":
