@@ -150,11 +150,11 @@ def main():
     
     
     # ## schedulazione post    
-    # schedule_rot_cplex = rebuild_schedule_using_rot_cplex(all_patient_records) #TODO creare un nuovo grafico per il punto 3
+    schedule_rot_cplex = rebuild_schedule_using_rot_cplex(all_patient_records) #TODO creare un nuovo grafico per il punto 3
     # # schedule_rot_cplex = rebuild_schedule_using_rot_cplex(schedule) #TODO creare un nuovo grafico per il punto 3
     # print_weekly_rot_summary(schedule_rot_cplex) # TODO rimuovere quando ci sono i grafici
-    # scheduleJson_path = export_json_schedule(schedule_rot_cplex.to_dict(), resultsData_folder + "/rot_cplex/")
-    # Graphs(f"{resultsData_folder + '/rot_cplex/'}{Settings.images_folder}").MakeGraphs(schedule_rot_cplex, plan_eot=plan_eot, use_rot_as_primary=True)
+    scheduleJson_path = export_json_schedule(schedule_rot_cplex.to_dict(), resultsData_folder + "/rot_cplex/")
+    Graphs(f"{resultsData_folder + '/rot_cplex/'}{Settings.images_folder}").MakeGraphs(schedule_rot_cplex, plan_eot=plan_eot, use_rot_as_primary=True)
     
     schedule_stimato_ripianificato = CreateScheduleWithReplanned(schedule, plan_eot)
     scheduleJson_path = export_json_schedule(schedule_stimato_ripianificato.to_dict(), resultsData_folder + "/temp/")
@@ -162,7 +162,7 @@ def main():
     dictSchedules = {
         "Stimato": schedule,
         "Stimato + Ripianificato": schedule_stimato_ripianificato,
-        # "PostSchedulato": schedule_rot_cplex
+        "PostSchedulato": schedule_rot_cplex
     }
 
     Graphs(f"{resultsData_folder}").MostraTabellaConfrontoPlotly(dictSchedules)
