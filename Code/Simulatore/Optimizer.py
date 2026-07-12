@@ -4,7 +4,6 @@ This module contains the weekly EOT model, utility helpers, ROT resequencing
 logic, weekly ROT simulation, and the main EOT+ROT orchestration flow.
 """
 
-import csv
 import copy
 import math
 import os
@@ -20,7 +19,7 @@ from CommonClass.Patient import Patient
 from settings import Settings
 
 
-#region Model setup and debug helpers
+# region Model setup and debug helpers
 def PyomoModel_0(
     new_patients: List[Patient],
     operating_room_count: int,
@@ -40,27 +39,19 @@ def PyomoModel_0(
     patients_sorted = sorted(new_patients, key=lambda patient: patient.id)
 
     def patient_once(model, patient_index):
-        return sum(model.ORs[patient_index, t, k] for t in model.T for k in model.K) <= 1
+        return (
+            sum(model.ORs[patient_index, t, k] for t in model.T for k in model.K) <= 1
+        )
 
     def daily_capacity_rule(model, t, k):
         return sum(model.ORs[i, t, k] * model.eot[i] for i in model.I) <= model.s[t, k]
 
     def objective_rule_M1(model):
         """Maximize the number of patients assigned in the week."""
-        return sum(model.ORs[i, t, k] for i in model.I for t in model.T for k in model.K)
-        
-        #"""Maximize the total assigned EOT time in the week.
+        return sum(
+            model.ORs[i, t, k] for i in model.I for t in model.T for k in model.K
+        )
 
-        #This objective encourages the model to fill daily OR capacity and reduce
-        #unused idle minutes, instead of only maximizing the count of patients.
-        #"""
-        #return sum(
-        #    model.ORs[i, t, k] * model.eot[i]
-        #    for i in model.I
-        #    for t in model.T
-        #    for k in model.K
-        #)
-    
     model = pyo.ConcreteModel()
     model.I = pyo.Set(initialize=range(len(patients_sorted)))
     model.T = pyo.Set(initialize=range(start_time, start_time + max_day_for_week))
@@ -87,118 +78,19 @@ def PyomoModel_0(
     model.ORs = pyo.Var(model.I, model.T, model.K, domain=pyo.Binary)
 
     model.rule_patient_once = pyo.Constraint(model.I, rule=patient_once)
-    model.rule_daily_capacity = pyo.Constraint(model.T, model.K, rule=daily_capacity_rule)
+    model.rule_daily_capacity = pyo.Constraint(
+        model.T, model.K, rule=daily_capacity_rule
+    )
     model.Objective = pyo.Objective(rule=objective_rule_M1, sense=pyo.maximize)
 
     return model
 
 
-def scrivi_csv_incrementale(data, nome_file: str = "model_results.csv") -> None:
-    """Append model assignment data to a debug CSV file."""
-    filepath = Settings.resultsData_folder
-    os.makedirs(filepath, exist_ok=True)
-    output_path = os.path.join(filepath, nome_file)
-
-    with open(output_path, mode="a", newline="") as file:
-        writer = csv.writer(file)
-        if file.tell() == 0:
-            writer.writerow(["indice_i", "id_i", "w", "d", "day", "mtb", "accettato"])
-        for a, b, c, d, e, f, g in data:
-            writer.writerow([a, b, c, d, e, f, g])
+# endregion
 
 
-#endregion
+# region ROT resequencing helpers
 
-
-#region EOT weekly scheduling
-
-def optimize_daily_batch_cplex(patients: List[Patient], specialty: str) -> List[Patient]:
-    """Schedule patients in EOT batches by weekly horizon."""
-    patient_list = sorted(patients, key=lambda patient: patient.day)
-    day_for_week = Settings.week_length_days
-    day_start = Settings.start_week_scheduling * day_for_week
-    operating_rooms = Settings.workstations_config[specialty]
-
-    current_day = day_start
-    weekly_patients = [patient for patient in patient_list if patient.day < current_day]
-    result: List[Patient] = []
-
-    while weekly_patients:
-        eot_model = PyomoModel_0(weekly_patients, operating_rooms, current_day)
-        Settings.solver.solve(eot_model, tee=Settings.solver_tee)
-
-        if False:  # debug block
-            print("Solver Status:", Settings.solver.status)
-            print("Termination Condition:", Settings.solver.termination_condition)
-            assignments = [
-                (
-                    i,
-                    eot_model.id_p[i],
-                    k,
-                    t,
-                    eot_model.dr[i],
-                    eot_model.mtb[i],
-                    pyo.value(eot_model.ORs[i, t, k]),
-                )
-                for i in eot_model.I
-                for k in eot_model.K
-                for t in eot_model.T
-            ]
-            scrivi_csv_incrementale(
-                assignments,
-                nome_file=f"model_results_{specialty.replace(' ', '_')}.csv",
-            )
-
-        scheduled_ids = {
-            eot_model.id_p[i]
-            for i in eot_model.I
-            if any(pyo.value(eot_model.ORs[i, t, k]) == 1 for t in eot_model.T for k in eot_model.K)
-        }
-
-        weekly_patients = [patient for patient in weekly_patients if patient.id not in scheduled_ids]
-
-        current_day += day_for_week
-        weekly_patients.extend(
-            [
-                patient
-                for patient in patient_list
-                if current_day - day_for_week <= patient.day < current_day and patient not in weekly_patients
-            ]
-        )
-
-        result.extend(
-            [
-                Patient(
-                    id=eot_model.id_p[i],
-                    eot=eot_model.eot[i],
-                    day=eot_model.dr[i],
-                    mtb=eot_model.mtb[i],
-                    rot=[patient for patient in patients if patient.id == eot_model.id_p[i]][0].rot,
-                    opDay=t,
-                    workstation=k,
-                    overdue=False,
-                )
-                for i in eot_model.I
-                for k in eot_model.K
-                for t in eot_model.T
-                if pyo.value(eot_model.ORs[i, t, k]) == 1
-            ]
-        )
-
-        if current_day > day_start + (Settings.weeks_to_fill + 3) * day_for_week:
-            print(
-                f"Reached the maximum scheduling period for {specialty} and week "
-                f"from {day_start} to {current_day}. Stopping further scheduling."
-            )
-            break
-
-    return result
-
-
-#endregion
-
-
-#region ROT resequencing helpers
 
 def compute_w_tilde(p: Patient, today: int, phi: int) -> float:
     """Compute the priority score used for ROT resequencing."""
@@ -289,10 +181,11 @@ def resequence_remaining_patients(
     return [item["patient"] for item in ordered]
 
 
-#endregion
+# endregion
 
 
-#region ROT weekly simulation
+# region ROT weekly simulation
+
 
 def overtime_with_rot(
     next_p: Patient,
@@ -321,7 +214,9 @@ def execute_rot_schedule(
     extra_time_pool: float,
 ) -> Tuple[List[Patient], List[Patient], float, Dict[str, object]]:
     """Execute a single week's ROT plan from an EOT schedule."""
-    return clean_week_with_rot(planned_patients, specialty, week_start_day, extra_time_pool)
+    return clean_week_with_rot(
+        planned_patients, specialty, week_start_day, extra_time_pool
+    )
 
 
 def clean_week_with_rot(
@@ -363,7 +258,9 @@ def clean_week_with_rot(
             first_patient = True
 
             while remaining:
-                remaining_capacity_eot = (day_limit + remeaning_extra_time_pool) - rot_sum
+                remaining_capacity_eot = (
+                    day_limit + remeaning_extra_time_pool
+                ) - rot_sum
                 if remaining_capacity_eot <= 0:
                     break
 
@@ -392,7 +289,9 @@ def clean_week_with_rot(
                         break
 
                     no_overtime = [
-                        candidate for candidate in feasible_candidates if candidate.rot <= actual_available
+                        candidate
+                        for candidate in feasible_candidates
+                        if candidate.rot <= actual_available
                     ]
                     if no_overtime:
                         next_p = no_overtime[0]
@@ -440,10 +339,12 @@ def clean_week_with_rot(
 
     return executed, overflow_to_next_week, remeaning_extra_time_pool, stats
 
-#endregion
+
+# endregion
 
 
-#region EOT + ROT orchestration
+# region EOT + ROT orchestration
+
 
 def compact_eot_schedule_to_week_start(
     planned_patients: List[Patient],
@@ -473,7 +374,12 @@ def compact_eot_schedule_to_week_start(
 
     ordered_patients = sorted(
         planned_patients,
-        key=lambda patient: (patient.opDay, -patient.eot, patient.workstation, patient.id),
+        key=lambda patient: (
+            patient.opDay,
+            -patient.eot,
+            patient.workstation,
+            patient.id,
+        ),
     )
 
     for patient in ordered_patients:
@@ -492,17 +398,21 @@ def compact_eot_schedule_to_week_start(
         patient.opDay, patient.workstation = best_slot
         used_time[best_slot] += patient.eot
 
-    planned_patients.sort(key=lambda patient: (patient.opDay, patient.workstation, patient.id))
+    planned_patients.sort(
+        key=lambda patient: (patient.opDay, patient.workstation, patient.id)
+    )
     return planned_patients
 
 
-def plan_week_eot(patients: List[Patient], specialty: str, week_start_day: int) -> List[Patient]:
+def plan_week_eot(
+    patients: List[Patient], specialty: str, week_start_day: int
+) -> List[Patient]:
     """Build the weekly EOT plan and compact it toward the start of the week."""
     operating_rooms = Settings.workstations_config[specialty]
 
     model = PyomoModel_0(patients, operating_rooms, week_start_day)
-    #Settings.solver.options['mipgap'] = 0.01
-    Settings.solver.options['timelimit'] = 300
+    # Settings.solver.options['mipgap'] = 0.01
+    Settings.solver.options["timelimit"] = 300
     Settings.solver.solve(model, tee=Settings.solver_tee)
 
     planned = [
@@ -527,9 +437,6 @@ def plan_week_eot(patients: List[Patient], specialty: str, week_start_day: int) 
     return planned
 
 
-
-
-
 def reallocate_week_with_rot_overtime(
     planned_patients: List[Patient],
     specialty: str,
@@ -541,15 +448,9 @@ def reallocate_week_with_rot_overtime(
 
     operating_rooms = Settings.workstations_config[specialty]
 
-    valid_patients = [
-        p for p in planned_patients
-        if (p.day + p.mtb) >= week_start_day
-    ]
+    valid_patients = [p for p in planned_patients if (p.day + p.mtb) >= week_start_day]
 
-    overflow = [
-        p for p in planned_patients
-        if (p.day + p.mtb) < week_start_day
-    ]
+    overflow = [p for p in planned_patients if (p.day + p.mtb) < week_start_day]
 
     for p in overflow:
         p.overdue = True
@@ -560,65 +461,31 @@ def reallocate_week_with_rot_overtime(
 
     model.I = pyo.Set(initialize=range(len(patients_sorted)))
     model.T = pyo.Set(
-        initialize=range(
-            week_start_day,
-            week_start_day + Settings.week_length_days
-        )
+        initialize=range(week_start_day, week_start_day + Settings.week_length_days)
     )
-    model.K = pyo.Set(
-        initialize=range(1, operating_rooms + 1)
-    )
+    model.K = pyo.Set(initialize=range(1, operating_rooms + 1))
 
     model.rot = pyo.Param(
-        model.I,
-        initialize={
-            i: patients_sorted[i].rot
-            for i in model.I
-        }
+        model.I, initialize={i: patients_sorted[i].rot for i in model.I}
     )
 
     model.id_p = pyo.Param(
-        model.I,
-        initialize={
-            i: patients_sorted[i].id
-            for i in model.I
-        }
+        model.I, initialize={i: patients_sorted[i].id for i in model.I}
     )
 
     model.mtb = pyo.Param(
-        model.I,
-        initialize={
-            i: patients_sorted[i].mtb
-            for i in model.I
-        }
+        model.I, initialize={i: patients_sorted[i].mtb for i in model.I}
     )
 
-    model.x = pyo.Var(
-        model.I,
-        model.T,
-        model.K,
-        domain=pyo.Binary
-    )
+    model.x = pyo.Var(model.I, model.T, model.K, domain=pyo.Binary)
 
-    model.overtime = pyo.Var(
-        model.T,
-        model.K,
-        domain=pyo.NonNegativeReals
-    )
+    model.overtime = pyo.Var(model.T, model.K, domain=pyo.NonNegativeReals)
 
     def patient_once(model, i):
-        return sum(
-            model.x[i, t, k]
-            for t in model.T
-            for k in model.K
-        ) <= 1
+        return sum(model.x[i, t, k] for t in model.T for k in model.K) <= 1
 
     model.day = pyo.Param(
-        model.I,
-        initialize={
-            i: patients_sorted[i].day
-            for i in model.I
-        }
+        model.I, initialize={i: patients_sorted[i].day for i in model.I}
     )
 
     def hard_deadline_rule(model, i, t, k):
@@ -630,49 +497,25 @@ def reallocate_week_with_rot_overtime(
 
         return pyo.Constraint.Skip
 
-    model.deadline = pyo.Constraint(
-        model.I,
-        model.T,
-        model.K,
-        rule=hard_deadline_rule
-    )
+    model.deadline = pyo.Constraint(model.I, model.T, model.K, rule=hard_deadline_rule)
 
-    model.patient_once = pyo.Constraint(
-        model.I,
-        rule=patient_once
-    )
+    model.patient_once = pyo.Constraint(model.I, rule=patient_once)
 
     def capacity_rule(model, t, k):
         return (
-            sum(
-                model.rot[i] * model.x[i, t, k]
-                for i in model.I
-            )
-            <=
-            Settings.daily_operation_limit
-            + model.overtime[t, k]
+            sum(model.rot[i] * model.x[i, t, k] for i in model.I)
+            <= Settings.daily_operation_limit + model.overtime[t, k]
         )
 
-    model.capacity = pyo.Constraint(
-        model.T,
-        model.K,
-        rule=capacity_rule
-    )
+    model.capacity = pyo.Constraint(model.T, model.K, rule=capacity_rule)
 
     def overtime_pool_rule(model):
         return (
-            sum(
-                model.overtime[t, k]
-                for t in model.T
-                for k in model.K
-            )
-            <=
-            Settings.weekly_extra_time_pool
+            sum(model.overtime[t, k] for t in model.T for k in model.K)
+            <= Settings.weekly_extra_time_pool
         )
 
-    model.overtime_pool = pyo.Constraint(
-        rule=overtime_pool_rule
-    )
+    model.overtime_pool = pyo.Constraint(rule=overtime_pool_rule)
 
     model.obj = pyo.Objective(
         expr=sum(
@@ -681,15 +524,12 @@ def reallocate_week_with_rot_overtime(
             for t in model.T
             for k in model.K
         ),
-        sense=pyo.maximize
+        sense=pyo.maximize,
     )
 
     # Settings.solver.options['mipgap'] = 0.01
-    Settings.solver.options['timelimit'] = 300
-    Settings.solver.solve(
-        model,
-        tee=Settings.solver_tee
-    )
+    Settings.solver.options["timelimit"] = 300
+    Settings.solver.solve(model, tee=Settings.solver_tee)
 
     scheduled = []
     overflow = overflow.copy()
@@ -725,22 +565,14 @@ def reallocate_week_with_rot_overtime(
 
             overflow.append(copy.deepcopy(p))
 
-    scheduled.sort(
-        key=lambda p: (
-            p.opDay,
-            p.workstation,
-            p.id
-        )
-    )
+    scheduled.sort(key=lambda p: (p.opDay, p.workstation, p.id))
 
     return scheduled, overflow
 
 
-
-
-
-
-def optimize_daily_batch_rot_both(patients: List[Patient], specialty: str) -> Dict[str, object]:
+def optimize_daily_batch_rot_both(
+    patients: List[Patient], specialty: str
+) -> Dict[str, object]:
     """Run the combined EOT planning and ROT execution workflow."""
     patient_list = sorted(patients, key=lambda patient: patient.day)
     patient_by_id = {patient.id: patient for patient in patient_list}
@@ -779,7 +611,8 @@ def optimize_daily_batch_rot_both(patients: List[Patient], specialty: str) -> Di
                 [
                     patient
                     for patient in patient_list
-                    if current_day - day_for_week <= patient.day < current_day and patient not in weekly_patients
+                    if current_day - day_for_week <= patient.day < current_day
+                    and patient not in weekly_patients
                 ]
             )
             continue
@@ -809,9 +642,7 @@ def optimize_daily_batch_rot_both(patients: List[Patient], specialty: str) -> Di
         carryover_count = len(carryover_ids)
 
         weekly_patients = [
-            patient_by_id[pid]
-            for pid in carryover_ids
-            if pid in patient_by_id
+            patient_by_id[pid] for pid in carryover_ids if pid in patient_by_id
         ]
         weekly_patients.sort(key=lambda patient: patient.day)
 
@@ -820,7 +651,8 @@ def optimize_daily_batch_rot_both(patients: List[Patient], specialty: str) -> Di
         new_arrivals = [
             patient
             for patient in patient_list
-            if current_day - day_for_week <= patient.day < current_day and patient.id not in existing_ids
+            if current_day - day_for_week <= patient.day < current_day
+            and patient.id not in existing_ids
         ]
         weekly_patients.extend(new_arrivals)
 
@@ -857,4 +689,4 @@ def optimize_daily_batch_rot_both(patients: List[Patient], specialty: str) -> Di
     return result
 
 
-#endregion
+# endregion
