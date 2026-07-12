@@ -4,7 +4,6 @@ import os
 if os.path.basename(__file__) != "main.py":
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../', 'Code')))
 
-from CommonClass.Week import Week
 from CommonClass.Patient import Patient
 
 
@@ -13,9 +12,9 @@ class PatientListForSpecialties: #PLFS
     def __init__(self):
         self.list = {
             "Specialty A": [],
-            #Specialty.OpA.value: []}
-            # Operation.OpB.value: [], 
-            # Operation.OpC.value: []
+            "Specialty B": [],
+            "Specialty C": []
+
             }
     def __setitem__(self, key, value):
         self.list[key] = value
