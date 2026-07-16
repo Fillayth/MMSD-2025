@@ -436,7 +436,14 @@ def plan_week_eot(
     planned.sort(key=lambda patient: (patient.opDay, patient.workstation, patient.id))
     return planned
 
+"""
+Rialloca una settimana utilizzando direttamente i tempi reali (ROT)
+consentendo l'impiego di overtime.
 
+Il modello assegna i pazienti alle sale operatorie rispettando le
+scadenze MTB, i limiti giornalieri e il monte ore straordinario
+disponibile.
+"""
 def reallocate_week_with_rot_overtime(
     planned_patients: List[Patient],
     specialty: str,

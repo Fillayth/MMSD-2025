@@ -124,6 +124,21 @@ def group_daily_with_mtb_logic_optimized_rot(
 
     # ── Helper: serializzazione Patient → dict JSON ───────────────────────────
     def patient_to_dict(p: Patient) -> dict:
+        """
+        Converte un oggetto Patient in un dizionario serializzabile in JSON.
+
+        Parameters
+        ----------
+        p : Patient
+            Paziente da convertire.
+
+        Returns
+        -------
+        dict
+            Dizionario contenente gli attributi rilevanti del paziente per
+            l'esportazione dello schedule.
+        """
+
         return {
             "id": p.id,
             "day": p.day,
@@ -182,6 +197,28 @@ def group_daily_with_mtb_logic_optimized_rot(
 def rebuild_schedule_using_rot_cplex(
     schedule: PatientListForSpecialties,
 ) -> PatientListForSpecialties:
+    """
+    Ricostruisce lo schedule utilizzando i tempi reali (ROT) tramite una
+    nuova ottimizzazione settimanale.
+
+    I pazienti vengono raggruppati per settimana in base al giorno di
+    inserimento in lista d'attesa. Per ciascuna settimana viene eseguita una
+    riallocazione con il modello ROT, che tiene conto dell'overtime
+    disponibile e degli eventuali pazienti rimasti dalla settimana
+    precedente (carryover).
+
+    Parameters
+    ----------
+    schedule : PatientListForSpecialties
+       Schedule iniziale contenente i pazienti assegnati alle varie
+       specialità.
+
+    Returns
+    -------
+    PatientListForSpecialties
+       Nuovo schedule ottenuto dalla riallocazione settimanale basata sui
+       tempi reali (ROT).
+    """
 
     from Simulatore.Optimizer import reallocate_week_with_rot_overtime
 
