@@ -306,79 +306,46 @@ class Graphs:
         plan_eot: dict | None = None,
         use_rot_as_primary: bool = False,
     ) -> None:
-        """Crea box plot dei tempi di attesa per settimana e specialità, integrando i dati pianificati.
+        # 1. Sovrascrive/integra operations dando priorità a plan_eot
+        operations_updated = CreateScheduleWithReplanned(operations, plan_eot)
 
-        Args:
-            operations: PatientListForSpecialties con i dati reali
-            basetitle: Titolo base del grafico
-            plan_eot: Dizionario contenente la programmazione pianificata EOT
-            use_rot_as_primary: Se True usa i dati reali, altrimenti usa il pianificato (EOT)
-        """
-        for op, patients_real in operations.items():
+        for op, patients_real in operations_updated.items():
             if not patients_real:
                 continue
 
             title = basetitle + op
 
-            # --- 1. Estrazione e pulizia dati PIANIFICATI (EOT) ---
-            plan_list = plan_eot.get(op, []) if plan_eot is not None else None
-            if plan_list is not None:
-                latest_plan_by_id = {}
-                for pp in plan_list:
-                    if not isinstance(pp, dict):
-                        continue
-                    pid = pp.get("id", None)
-                    if pid is None:
-                        continue
-                    latest_plan_by_id[pid] = pp
-                plan_list = list(latest_plan_by_id.values())
-
-            # --- 2. Selezione del Dataset e Deduplicazione ID ---
+            # 2. Selezione ed estrazione uniforme
             rows = []
-            if use_rot_as_primary or plan_list is None:
-                # Dati REALI: garantiamo l'unicità dell'ID paziente
-                seen_ids = set()
-                for p in patients_real:
-                    if p.id not in seen_ids:
-                        seen_ids.add(p.id)
-                        rows.append(
-                            {
-                                "ID": p.id,
-                                "Data inserimento": p.day,
-                                "MTB": getattr(p, "mtb", None),
-                                "Data operazione": p.opDay,
-                            }
-                        )
-            else:
-                # Dati PIANIFICATI (già deduplicati globalmente per ID nel punto 1)
-                for pp in plan_list:
+            seen_ids = set()
+            for p in patients_real:
+                p_id = p.get("id") if isinstance(p, dict) else getattr(p, "id", None)
+                p_day = p.get("day", 0) if isinstance(p, dict) else getattr(p, "day", 0)
+                p_mtb = p.get("mtb", None) if isinstance(p, dict) else getattr(p, "mtb", None)
+                p_opDay = p.get("opDay", -1) if isinstance(p, dict) else getattr(p, "opDay", -1)
+
+                if p_id is not None and p_id not in seen_ids:
+                    seen_ids.add(p_id)
                     rows.append(
                         {
-                            "ID": pp.get("id"),
-                            "Data inserimento": pp.get("day", 0),
-                            "MTB": pp.get("mtb", None),
-                            "Data operazione": pp.get("opDay", -1),
+                            "ID": p_id,
+                            "Data inserimento": p_day,
+                            "MTB": p_mtb,
+                            "Data operazione": p_opDay,
                         }
                     )
 
-            # --- 3. Costruzione DataFrame e calcolo metriche ---
             df = pd.DataFrame(rows)
-
-            # Consideriamo solo i pazienti che hanno effettivamente una data di operazione valida
             df = df[df["Data operazione"] != -1].dropna(subset=["Data operazione"])
 
             if df.empty:
                 continue
 
             df["Tempo_attesa"] = df["Data operazione"] - df["Data inserimento"]
-
-            # Calcola il numero massimo di settimane basandosi sul dataset scelto
             last_week = int(df["Data operazione"].max() // Settings.week_length_days)
 
-            # --- 4. Generazione dei Box Plot per Settimana ---
             data = []
             for weekNum in range(last_week + 1):
-                # Manteniamo la logica di segmentazione originaria dei giorni della settimana
                 week_start = (weekNum - 1) * Settings.week_length_days + 1
                 week_end = weekNum * Settings.week_length_days
 
@@ -395,9 +362,7 @@ class Graphs:
                     )
                 )
 
-            # --- 5. Costruzione del Grafico Layout ---
             fig = go.Figure(data)
-
             metric_label = (
                 "Dati REALI (ROT)" if use_rot_as_primary else "Dati PIANIFICATI (EOT)"
             )
@@ -483,7 +448,10 @@ class Graphs:
     ):
         limite_massimo = Settings.daily_operation_limit
 
-        for op, patients_real in operation.items():
+        # Aggiorna la struttura operation usando la priorità di plan_eot
+        operation_updated = CreateScheduleWithReplanned(operation, plan_eot)
+
+        for op, patients_real in operation_updated.items():
             if not patients_real:
                 continue
             xline = Settings.week_length_days * Settings.workstations_config[op]
@@ -1118,10 +1086,11 @@ class Graphs:
         use_rot_as_primary: bool = False,
     ) -> None:
         """Crea grafico di tendenza del carico operatorio con doppio asse Y senza duplicati di ID paziente."""
-        for op, patients_real in operation.items():
+        operation_updated = CreateScheduleWithReplanned(operation, plan_eot)
+
+        for op, patients_real in operation_updated.items():
             if not patients_real:
                 continue
-
             title = baseTitle + op
 
             # --- 1. Pulizia globale del pianificato ---
@@ -1304,6 +1273,7 @@ class Graphs:
             # Genera etichette giorni
             last_day = max(p.opDay for p in patients)
             num_weeks = (last_day // Settings.week_length_days) + 1
+            total_days = num_weeks * Settings.week_length_days
             days_title = [
                 f"Day:{day}" for day in range(num_weeks * Settings.week_length_days)
             ]
@@ -1322,7 +1292,7 @@ class Graphs:
             room_free_time = {room_id + 1: [] for room_id in room_ids}
             room_patient = {room_id + 1: [] for room_id in room_ids}
 
-            for d in range(last_day):
+            for d in range(total_days):
                 for room_id in room_ids:
                     daily_patients = [
                         p
@@ -1405,10 +1375,11 @@ class Graphs:
             plan_eot: Dizionario contenente la programmazione pianificata EOT
             use_rot_as_primary: Se True usa i dati reali, altrimenti usa il pianificato (EOT)
         """
-        for op, patients_real in operations.items():
+        operations_updated = CreateScheduleWithReplanned(operations, plan_eot)
+
+        for op, patients_real in operations_updated.items():
             if not patients_real:
                 continue
-
             title = baseTitle + op
 
             # --- 1. Estrazione e pulizia dati PIANIFICATI (EOT) ---
@@ -1583,7 +1554,7 @@ class Graphs:
                 max(resolved_count.keys(), default=0),
             )
 
-            for day in range(1, max_day + 1):
+            for day in range(0, max_day + 1):
                 total_waiting += new_patient_count.get(day, 0)
                 total_waiting -= resolved_count.get(day, 0)
                 waiting_count[day] = total_waiting
@@ -1646,104 +1617,191 @@ class Graphs:
             self.ShowFigure(fig, name=f"WaitingListLineGraph_{op}")
 
     def MostraTabellaConfrontoPlotly(self, scenari: dict) -> None:
-        """Crea tabella di confronto tra scenari con metriche di performance.
-
-        Args:
-            scenari: Dizionario {nome_scenario: PatientListForSpecialties}
         """
-        nomi_scenari = []
-        specialta_nomi = []
-        pazienti_n = []
-        tempi_d_medi = []
-        priorita_p = []
-        week_length_days = Settings.week_length_days
+        Genera una visualizzazione in stile tabella interattiva basata su go.Heatmap.
+        Rimuove le etichette duplicat sull'asse Y e gestisce 'A capo' dinamico per Scenario e Specialità.
+        """
+        def wrap_text_by_words(text: str, max_chars: int = 14) -> str:
+            """Inserisce <br> tra le parole se la stringa supera max_chars per evitare sovrapposizioni."""
+            words = str(text).split(" ")
+            lines = []
+            current_line = []
+            current_length = 0
 
-        # Itera su scenari e specialità
-        for nome_scenario, operation_data in scenari.items():
-            for specialty, patients_real in operation_data.items():
-                if not patients_real:
+            for word in words:
+                if current_length + len(word) > max_chars and current_line:
+                    lines.append(" ".join(current_line))
+                    current_line = [word]
+                    current_length = len(word)
+                else:
+                    current_line.append(word)
+                    current_length += len(word) + 1
+            
+            if current_line:
+                lines.append(" ".join(current_line))
+                
+            return "<br>".join(lines)
+
+        # 1. Determina il numero massimo di settimane della simulazione
+        max_day = 0
+        for scenario_name, operation_data in scenari.items():
+            for spec, pazienti in operation_data.items():
+                for p in pazienti:
+                    if p.opDay > max_day:
+                        max_day = p.opDay
+                        
+        num_weeks = 1 if max_day == 0 else int((max_day - 1) // Settings.week_length_days + 1)
+            
+        # Nomi delle colonne con a capo automatico (<br>)
+        colonne_raw = ["Scenario", "Specialità", "N. Pazienti", "Attesa Media"]
+        for w in range(1, num_weeks + 1):
+            colonne_raw.append(f"Utilizzo OR W{w}")
+            colonne_raw.append(f"Straordinari W{w}")
+
+        colonne_finali = [col.replace(" ", "<br>") for col in colonne_raw]
+
+        rows_data = []      # Valori visibili nelle celle
+        hover_data = []     # Testo popup Hover
+        std_limit_daily = Settings.daily_operation_limit
+
+        for scenario_name, operation_data in scenari.items():
+            for spec_name, pazienti in operation_data.items():
+                if not pazienti or len(pazienti) == 0:
                     continue
 
-                num_rooms = Settings.workstations_config.get(specialty, 1)
-                tot_pazienti = 0
-                tempo_totale_reale = 0.0
-                somma_giorni_attesa = 0
+                num_rooms = Settings.workstations_config.get(spec_name, 1)
+                std_avail_weekly = std_limit_daily * Settings.week_length_days * num_rooms
+                extra_avail_weekly = Settings.weekly_extra_time_pool * num_rooms
 
-                # Calcola settimane per specialità
-                giorni_presenti = [
-                    p.opDay for p in patients_real if hasattr(p, "opDay")
+                daily_tot_time = {}
+                pazienti_operati = 0
+                somma_attesa = 0
+
+                for p in pazienti:
+                    pazienti_operati += 1
+                    somma_attesa += (p.opDay - p.day)
+                    daily_tot_time[p.opDay] = daily_tot_time.get(p.opDay, 0) + p.rot
+
+                attesa_media = round(somma_attesa / pazienti_operati, 1) if pazienti_operati > 0 else 0
+
+                row_or_pct = []
+                row_st_pct = []
+                row_or_hover = []
+                row_st_hover = []
+
+                for w in range(1, num_weeks + 1):
+                    giorni_settimana = range((w - 1) * Settings.week_length_days + 1, w * Settings.week_length_days + 1)
+                    used_std_weekly = 0
+                    used_extra_weekly = 0
+                    std_limit_daily_total = std_limit_daily * num_rooms
+
+                    for d in giorni_settimana:
+                        tot_day_time = daily_tot_time.get(d, 0)
+                        if tot_day_time > std_limit_daily_total:
+                            used_std_weekly += std_limit_daily_total
+                            used_extra_weekly += (tot_day_time - std_limit_daily_total)
+                        else:
+                            used_std_weekly += tot_day_time
+
+                    pct_or = round((used_std_weekly / std_avail_weekly) * 100, 1) if std_avail_weekly > 0 else 0
+                    pct_st = round((used_extra_weekly / extra_avail_weekly) * 100, 1) if extra_avail_weekly > 0 else 0
+
+                    row_or_pct.append(f"{pct_or}%")
+                    row_st_pct.append(f"{pct_st}%")
+
+                    row_or_hover.append(
+                        f"<b>Utilizzo OR Settimana {w}</b><br>"
+                        f"Utilizzati: {used_std_weekly:.1f} min<br>"
+                        f"Disponibili: {std_avail_weekly} min<br>"
+                        f"Percentuale: {pct_or}%"
+                    )
+                    row_st_hover.append(
+                        f"<b>Straordinari Settimana {w}</b><br>"
+                        f"Utilizzati: {used_extra_weekly:.1f} min<br>"
+                        f"Disponibili: {extra_avail_weekly} min<br>"
+                        f"Percentuale: {pct_st}%"
+                    )
+
+                # Formattazione con "A capo" per le colonne 1 e 2 (Scenario e Specialità)
+                formatted_scenario = wrap_text_by_words(scenario_name, max_chars=14)
+                formatted_spec = wrap_text_by_words(spec_name, max_chars=14)
+
+                row_cells_text = [
+                    formatted_scenario,
+                    formatted_spec,
+                    str(pazienti_operati),
+                    f"{attesa_media} gg"
                 ]
-                last_day = max(giorni_presenti) if giorni_presenti else 0
-                num_weeks = max(1, (last_day // week_length_days) + 1)
+                row_hover_text = [
+                    f"Scenario: <b>{scenario_name}</b>",
+                    f"Specialità: <b>{spec_name}</b>",
+                    f"Pazienti Totali Operati: <b>{pazienti_operati}</b>",
+                    f"Tempo di Attesa Medio: <b>{attesa_media} giorni</b>"
+                ]
 
-                # Aggrega metriche
-                for p in patients_real:
-                    tot_pazienti += 1
-                    tempo_totale_reale += getattr(p, "rot", 0.0)
-                    giorni_attesa = getattr(p, "opDay", 0) - getattr(p, "day", 0)
-                    somma_giorni_attesa += max(0, giorni_attesa)
+                for idx in range(num_weeks):
+                    row_cells_text.append(row_or_pct[idx])
+                    row_hover_text.append(row_or_hover[idx])
 
-                # Calcola metriche medie
-                tempo_medio_settimanale = tempo_totale_reale / num_weeks
-                priorita_media = (
-                    (somma_giorni_attesa / tot_pazienti) if tot_pazienti > 0 else 0.0
-                )
+                    row_cells_text.append(row_st_pct[idx])
+                    row_hover_text.append(row_st_hover[idx])
 
-                # Aggiungi riga alla tabella
-                nomi_scenari.append(nome_scenario)
-                specialta_nomi.append(specialty)
-                pazienti_n.append(tot_pazienti)
-                tempo_max_settimana = (
-                    week_length_days * Settings.daily_operation_limit * num_rooms
-                    + Settings.weekly_extra_time_pool * num_rooms
-                )
-                tempi_d_medi.append(
-                    f"{tempo_medio_settimanale:.2f}/{tempo_max_settimana}"
-                )
-                priorita_p.append(f"{priorita_media:.2f}")
+                rows_data.append(row_cells_text)
+                hover_data.append(row_hover_text)
 
-        # Crea tabella Plotly
-        fig = go.Figure(
-            data=[
-                go.Table(
-                    header={
-                        "values": [
-                            "<b>Scenario</b>",
-                            "<b>Specialità</b>",
-                            "<b>N.Pazienti</b>",
-                            "<b>Utilizzo OP (min/week)</b>",
-                            "<b>Attesa Media (giorni)</b>",
-                        ],
-                        "fill_color": "#1f77b4",
-                        "align": "center",
-                        "font": {"size": 12, "color": "white"},
-                    },
-                    cells={
-                        "values": [
-                            nomi_scenari,
-                            specialta_nomi,
-                            pazienti_n,
-                            tempi_d_medi,
-                            priorita_p,
-                        ],
-                        "fill_color": [["#f8f9fa", "#ffffff"] * len(nomi_scenari)],
-                        "align": "center",
-                        "font": {"size": 11, "color": "black"},
-                        "height": 28,
-                    },
-                )
-            ]
+        if not rows_data:
+            return
+
+        # Matrice vuota di sfondo e indice per l'asse Y
+        z_matrix = [[0] * len(colonne_finali) for _ in range(len(rows_data))]
+        y_indices = [f"R{i}" for i in range(len(rows_data))]
+
+        fig = go.Figure()
+
+        fig.add_trace(
+            go.Heatmap(
+                z=z_matrix,
+                x=colonne_finali,
+                y=y_indices,
+                text=rows_data,
+                texttemplate="%{text}",
+                textfont=dict(size=12, color="#111827", family="Arial"),
+                hovertext=hover_data,
+                hovertemplate="%{hovertext}<extra></extra>",
+                colorscale=[[0, "#f8f9fa"], [1, "#f8f9fa"]],
+                showscale=False,
+                xgap=2,
+                ygap=2
+            )
         )
 
+        # Calcolo dinamico della larghezza
+        min_col_width = 115
+        calculated_width = max(800, len(colonne_finali) * min_col_width)
+
         fig.update_layout(
-            title="Confronto Performance Scenari",
-            width=900,
-            height=400,
-            margin={"l": 20, "r": 20, "t": 60, "b": 20},
+            title="Tabella di Confronto Scenari - Dettaglio Settimanale Capacità",
+            xaxis=dict(
+                side="top",
+                tickangle=0,
+                tickfont=dict(size=11, color="#1f2937", family="Arial"),
+                showgrid=False
+            ),
+            yaxis=dict(
+                autorange="reversed",
+                showticklabels=False,  # RIMUOVE I NOMI RIGA SULL'ASSE Y (DOPPIONI)
+                showgrid=False
+            ),
+            plot_bgcolor="#cbd5e1",
+            paper_bgcolor="white",
+            width=calculated_width, 
+            height=max(450, len(rows_data) * 65 + 150),
+            margin=dict(l=20, r=20, t=140, b=30)
         )
 
         self.ShowFigure(fig, name="Tabella_Confronto_Scenari_Dettagliata")
-
+        
+    
     def MakeGraphs(
         self,
         data: PatientListForSpecialties,
@@ -1800,6 +1858,24 @@ if __name__ == "__main__":
     with open(file_path, mode="r", newline="", encoding="utf-8") as f:
         data = json.load(f)
 
-    ops = PatientListForSpecialties.from_dict(data)
+    schedule = PatientListForSpecialties.from_dict(data)
+    
+    file_path = "Data\\Rot\\extra_time.json"
+    with open(file_path, mode="r", newline="", encoding="utf-8") as f:
+        plan_eot = json.load(f)
+
+    schedule_stimato_ripianificato = CreateScheduleWithReplanned(schedule, plan_eot)
+
+    file_path = "Data\\Records\\seed-1\\rot_cplex\\weekly_schedule.json"
+    with open(file_path, mode="r", newline="", encoding="utf-8") as f:
+        data = json.load(f)
+
+    schedule_rot_cplex = PatientListForSpecialties.from_dict(data)
+
+    dictSchedules = {
+        "Stimato": schedule,
+        "Stimato + Ripianificato": schedule_stimato_ripianificato,
+        "PostSchedulato": schedule_rot_cplex,
+    }
     graph_manager = Graphs()
-    graph_manager.MakeGraphs(ops)
+    graph_manager.MostraTabellaConfrontoPlotly(dictSchedules)

@@ -45,7 +45,6 @@ class PatientListForSpecialties: #PLFS
         for key, value in data.items():
             if key not in obj.list:
                 raise ValueError(f"Chiave non valida: {key}")
-            #obj[key] = [Week.from_dict(w) for w in value]
             obj[key] = [Patient.from_dict(p) for p in value]
         return obj
     
