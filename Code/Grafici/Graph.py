@@ -1619,10 +1619,11 @@ class Graphs:
     def MostraTabellaConfrontoPlotly(self, scenari: dict) -> None:
         """
         Genera una visualizzazione in stile tabella interattiva basata su go.Heatmap.
-        Rimuove le etichette duplicat sull'asse Y e gestisce 'A capo' dinamico per Scenario e Specialità.
+        Supporta il raggruppamento dinamico (espandi/comprimi) delle settimane tramite pulsanti
+        e calcola i riepiloghi mensili.
         """
         def wrap_text_by_words(text: str, max_chars: int = 14) -> str:
-            """Inserisce <br> tra le parole se la stringa supera max_chars per evitare sovrapposizioni."""
+            """Avvolge il testo in più righe senza spezzare le parole."""
             words = str(text).split(" ")
             lines = []
             current_line = []
@@ -1642,7 +1643,7 @@ class Graphs:
                 
             return "<br>".join(lines)
 
-        # 1. Determina il numero massimo di settimane della simulazione
+        # 1. Determina il numero massimo di settimane
         max_day = 0
         for scenario_name, operation_data in scenari.items():
             for spec, pazienti in operation_data.items():
@@ -1651,19 +1652,42 @@ class Graphs:
                         max_day = p.opDay
                         
         num_weeks = 1 if max_day == 0 else int((max_day - 1) // Settings.week_length_days + 1)
-            
-        # Nomi delle colonne con a capo automatico (<br>)
-        colonne_raw = ["Scenario", "Specialità", "N. Pazienti", "Attesa Media"]
+        num_months = (num_weeks - 1) // 4 + 1
+
+        # 2. Costruzione della struttura delle colonne
+        colonne_base = ["Scenario", "Specialità", "N. Pazienti", "Attesa Media"]
+        
+        colonne_dettagliate = [col.replace(" ", "<br>") for col in colonne_base]
+        colonne_sintetiche = [col.replace(" ", "<br>") for col in colonne_base]
+        
+        # Mappa quali colonne sono visibili nella vista raggruppata/sintetica
+        indices_sintetici = list(range(len(colonne_base)))  # Colonne base sempre visibili
+        current_col_idx = len(colonne_base)
+
         for w in range(1, num_weeks + 1):
-            colonne_raw.append(f"Utilizzo OR W{w}")
-            colonne_raw.append(f"Straordinari W{w}")
+            colonne_dettagliate.append(f"Utilizzo<br>OR W{w}")
+            colonne_dettagliate.append(f"Straordinari<br>W{w}")
+            current_col_idx += 2
 
-        colonne_finali = [col.replace(" ", "<br>") for col in colonne_raw]
+            # Ogni 4 settimane (o alla fine della simulazione), inserisci il Riepilogo Mensile
+            if w % 4 == 0 or w == num_weeks:
+                m = (w - 1) // 4 + 1
+                colonne_dettagliate.append(f"Media OR<br>M{m}")
+                colonne_dettagliate.append(f"Media ST<br>M{m}")
+                
+                colonne_sintetiche.append(f"Media OR<br>M{m}")
+                colonne_sintetiche.append(f"Media ST<br>M{m}")
+                
+                # Gli indici dei riepiloghi mensili restano visibili anche nella vista sintetica
+                indices_sintetici.append(current_col_idx)
+                indices_sintetici.append(current_col_idx + 1)
+                current_col_idx += 2
 
-        rows_data = []      # Valori visibili nelle celle
-        hover_data = []     # Testo popup Hover
+        rows_data_full = []
+        hover_data_full = []
         std_limit_daily = Settings.daily_operation_limit
 
+        # 3. Elaborazione Dati
         for scenario_name, operation_data in scenari.items():
             for spec_name, pazienti in operation_data.items():
                 if not pazienti or len(pazienti) == 0:
@@ -1684,10 +1708,25 @@ class Graphs:
 
                 attesa_media = round(somma_attesa / pazienti_operati, 1) if pazienti_operati > 0 else 0
 
-                row_or_pct = []
-                row_st_pct = []
-                row_or_hover = []
-                row_st_hover = []
+                formatted_scenario = wrap_text_by_words(scenario_name, max_chars=14)
+                formatted_spec = wrap_text_by_words(spec_name, max_chars=14)
+
+                row_cells = [
+                    formatted_scenario,
+                    formatted_spec,
+                    str(pazienti_operati),
+                    f"{attesa_media} gg"
+                ]
+                row_hover = [
+                    f"Scenario: <b>{scenario_name}</b>",
+                    f"Specialità: <b>{spec_name}</b>",
+                    f"Pazienti Totali Operati: <b>{pazienti_operati}</b>",
+                    f"Tempo di Attesa Medio: <b>{attesa_media} giorni</b>"
+                ]
+
+                # Dati settimanali e calcolo medie mensili
+                month_or_pcts = []
+                month_st_pcts = []
 
                 for w in range(1, num_weeks + 1):
                     giorni_settimana = range((w - 1) * Settings.week_length_days + 1, w * Settings.week_length_days + 1)
@@ -1706,81 +1745,140 @@ class Graphs:
                     pct_or = round((used_std_weekly / std_avail_weekly) * 100, 1) if std_avail_weekly > 0 else 0
                     pct_st = round((used_extra_weekly / extra_avail_weekly) * 100, 1) if extra_avail_weekly > 0 else 0
 
-                    row_or_pct.append(f"{pct_or}%")
-                    row_st_pct.append(f"{pct_st}%")
+                    month_or_pcts.append(pct_or)
+                    month_st_pcts.append(pct_st)
 
-                    row_or_hover.append(
+                    # Aggiunta dati della singola settimana
+                    row_cells.append(f"{pct_or}%")
+                    row_cells.append(f"{pct_st}%")
+
+                    row_hover.append(
                         f"<b>Utilizzo OR Settimana {w}</b><br>"
                         f"Utilizzati: {used_std_weekly:.1f} min<br>"
                         f"Disponibili: {std_avail_weekly} min<br>"
                         f"Percentuale: {pct_or}%"
                     )
-                    row_st_hover.append(
+                    row_hover.append(
                         f"<b>Straordinari Settimana {w}</b><br>"
                         f"Utilizzati: {used_extra_weekly:.1f} min<br>"
                         f"Disponibili: {extra_avail_weekly} min<br>"
                         f"Percentuale: {pct_st}%"
                     )
 
-                # Formattazione con "A capo" per le colonne 1 e 2 (Scenario e Specialità)
-                formatted_scenario = wrap_text_by_words(scenario_name, max_chars=14)
-                formatted_spec = wrap_text_by_words(spec_name, max_chars=14)
+                    # Calcolo e aggiunta del Riepilogo Mensile
+                    if w % 4 == 0 or w == num_weeks:
+                        m = (w - 1) // 4 + 1
+                        avg_or = round(sum(month_or_pcts) / len(month_or_pcts), 1)
+                        avg_st = round(sum(month_st_pcts) / len(month_st_pcts), 1)
 
-                row_cells_text = [
-                    formatted_scenario,
-                    formatted_spec,
-                    str(pazienti_operati),
-                    f"{attesa_media} gg"
-                ]
-                row_hover_text = [
-                    f"Scenario: <b>{scenario_name}</b>",
-                    f"Specialità: <b>{spec_name}</b>",
-                    f"Pazienti Totali Operati: <b>{pazienti_operati}</b>",
-                    f"Tempo di Attesa Medio: <b>{attesa_media} giorni</b>"
-                ]
+                        row_cells.append(f"<b>{avg_or}%</b>")
+                        row_cells.append(f"<b>{avg_st}%</b>")
 
-                for idx in range(num_weeks):
-                    row_cells_text.append(row_or_pct[idx])
-                    row_hover_text.append(row_or_hover[idx])
+                        row_hover.append(f"<b>Media OR Mese {m}</b><br>Media: {avg_or}% su {len(month_or_pcts)} sett.")
+                        row_hover.append(f"<b>Media Straordinari Mese {m}</b><br>Media: {avg_st}% su {len(month_st_pcts)} sett.")
 
-                    row_cells_text.append(row_st_pct[idx])
-                    row_hover_text.append(row_st_hover[idx])
+                        # Resetta i dati per il mese successivo
+                        month_or_pcts = []
+                        month_st_pcts = []
 
-                rows_data.append(row_cells_text)
-                hover_data.append(row_hover_text)
+                rows_data_full.append(row_cells)
+                hover_data_full.append(row_hover)
 
-        if not rows_data:
+        if not rows_data_full:
             return
 
-        # Matrice vuota di sfondo e indice per l'asse Y
-        z_matrix = [[0] * len(colonne_finali) for _ in range(len(rows_data))]
-        y_indices = [f"R{i}" for i in range(len(rows_data))]
+        # 4. Preparazione Dati Filtrati per la Vista Sintetica
+        rows_data_synth = [[row[idx] for idx in indices_sintetici] for row in rows_data_full]
+        hover_data_synth = [[row[idx] for idx in indices_sintetici] for row in hover_data_full]
+
+        # Matrici Z trasparenti di sfondo
+        z_full = [[0] * len(colonne_dettagliate) for _ in range(len(rows_data_full))]
+        z_synth = [[0] * len(colonne_sintetiche) for _ in range(len(rows_data_synth))]
+        y_indices = [f"R{i}" for i in range(len(rows_data_full))]
 
         fig = go.Figure()
 
+        # Trace 0: Vista Sintetica (Raggruppata) - Visibile di Default
+        colorscale = [[0, "#4c9ded"], [1, "#f8f9fa"]]
         fig.add_trace(
             go.Heatmap(
-                z=z_matrix,
-                x=colonne_finali,
+                z=z_synth,
+                x=colonne_sintetiche,
                 y=y_indices,
-                text=rows_data,
+                text=rows_data_synth,
                 texttemplate="%{text}",
                 textfont=dict(size=12, color="#111827", family="Arial"),
-                hovertext=hover_data,
+                hovertext=hover_data_synth,
                 hovertemplate="%{hovertext}<extra></extra>",
-                colorscale=[[0, "#f8f9fa"], [1, "#f8f9fa"]],
+                colorscale=colorscale,
                 showscale=False,
                 xgap=2,
-                ygap=2
+                ygap=2,
+                visible=True,
+                name="Sintetica"
             )
         )
 
-        # Calcolo dinamico della larghezza
-        min_col_width = 115
-        calculated_width = max(800, len(colonne_finali) * min_col_width)
+        # Trace 1: Vista Dettagliata (Espansa) - Nascosta di Default
+        fig.add_trace(
+            go.Heatmap(
+                z=z_full,
+                x=colonne_dettagliate,
+                y=y_indices,
+                text=rows_data_full,
+                texttemplate="%{text}",
+                textfont=dict(size=11, color="#111827", family="Arial"),
+                hovertext=hover_data_full,
+                hovertemplate="%{hovertext}<extra></extra>",
+                colorscale=colorscale,
+                showscale=False,
+                xgap=2,
+                ygap=2,
+                visible=False,
+                name="Dettagliata"
+            )
+        )
 
+        # Larghezze dinamiche per le due viste
+        min_col_width = 110
+        width_synth = max(800, len(colonne_sintetiche) * min_col_width)
+        width_full = max(800, len(colonne_dettagliate) * min_col_width)
+
+        # 5. Aggiunta Menu (Updatemenus)
         fig.update_layout(
-            title="Tabella di Confronto Scenari - Dettaglio Settimanale Capacità",
+            updatemenus=[
+                dict(
+                    type="buttons",
+                    direction="right",
+                    active=0,
+                    x=0.0,
+                    y=1.18,
+                    xanchor="left",
+                    yanchor="top",
+                    buttons=[
+                        dict(
+                            label="Mostra solo Mesi",
+                            method="update",
+                            args=[
+                                {"visible": [True, False]},
+                                {"width": width_synth}
+                            ]
+                        ),
+                        dict(
+                            label="Mostra dettaglio Settimane",
+                            method="update",
+                            args=[
+                                {"visible": [False, True]},
+                                {"width": width_full}
+                            ]
+                        )
+                    ]
+                )
+            ],
+            title=dict(
+                text="Tabella di Confronto Scenari",
+                y=0.98
+            ),
             xaxis=dict(
                 side="top",
                 tickangle=0,
@@ -1789,14 +1887,14 @@ class Graphs:
             ),
             yaxis=dict(
                 autorange="reversed",
-                showticklabels=False,  # RIMUOVE I NOMI RIGA SULL'ASSE Y (DOPPIONI)
+                showticklabels=False,
                 showgrid=False
             ),
             plot_bgcolor="#cbd5e1",
             paper_bgcolor="white",
-            width=calculated_width, 
-            height=max(450, len(rows_data) * 65 + 150),
-            margin=dict(l=20, r=20, t=140, b=30)
+            width=width_synth,
+            height=max(480, len(rows_data_full) * 65 + 160),
+            margin=dict(l=20, r=20, t=160, b=30)
         )
 
         self.ShowFigure(fig, name="Tabella_Confronto_Scenari_Dettagliata")
@@ -1817,6 +1915,7 @@ class Graphs:
             plan_eot: Pianificazione EOT opzionale
             use_rot_as_primary: Se True, usa ROT come metrica primaria
         """
+
         self.ShowFigures = showGraphs
 
         base_title = "Distribuzione pazienti - "
