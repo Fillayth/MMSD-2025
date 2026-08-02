@@ -62,7 +62,7 @@ def main():
     scheduleJson_path = export_json_schedule(
         schedule_rot_cplex.to_dict(), resultsData_folder + "/rot_cplex/"
     )
-    Graphs(f"{resultsData_folder + '/rot_cplex/'}{Settings.images_folder}").MakeGraphs(
+    Graphs(f"{resultsData_folder}/rot_cplex/{Settings.images_folder}").MakeGraphs(
         schedule_rot_cplex, plan_eot=plan_eot, use_rot_as_primary=True
     )
 

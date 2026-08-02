@@ -107,19 +107,15 @@ def CreateScheduleWithReplanned(schedule: dict, plan_eot_input: dict | None) -> 
                 seen_ids.add(p_id_str)
                 updated_patients.append(p)
 
-        # 4. FIX FONDAMENTALE: Aggiunta dei pazienti MANCANTI (Presenti solo in plan_eot)
-        # Questo blocco intercetta l'ID 1398 e lo inserisce nello schedule finale
         for pid_str, pp in latest_plan_by_id.items():
             if pid_str not in seen_ids:
                 seen_ids.add(pid_str)
 
-                # Identifichiamo se lo schedule usa Dizionari o Oggetti custom (es. istanze di Patient)
                 is_dict_mode = True
                 if patients and not isinstance(patients[0], dict):
                     is_dict_mode = False
 
                 if is_dict_mode:
-                    # Se lavoriamo con JSON/Dizionari grezzi
                     new_p = {
                         "id": pp.get("id"),
                         "eot": float(pp.get("eot", 0) or 0),
@@ -132,7 +128,6 @@ def CreateScheduleWithReplanned(schedule: dict, plan_eot_input: dict | None) -> 
                     }
                     updated_patients.append(new_p)
                 else:
-                    # Se lavoriamo con Oggetti, cloniamo il tipo e i metodi di un elemento esistente
                     try:
                         new_p = copy.deepcopy(patients[0])
                         new_p.id = pp.get("id")
@@ -232,7 +227,7 @@ class Graphs:
         if not self.log_graph_data:
             return
 
-        payload: dict[str, Any] = {
+        payload = {
             "context": context,
             "patients_count": len(patients or []),
             "plan_entries_count": len(plan_entries or []),
@@ -813,6 +808,14 @@ class Graphs:
                     secondary_y=False,
                 )
 
+            fig.add_hline(
+                y=0,
+                line=dict(color="#ed435c", width=2, dash="dash"),
+                #annotation_text="0 min Tempo Libero",
+                #annotation_position="bottom right",
+                #annotation_font_color="red",
+                secondary_y=False,
+            )
             # Linea inizio schedulazione
             if START_WEEK_SCHEDULING >= 1:
                 fig.add_vline(
@@ -984,7 +987,7 @@ class Graphs:
                 else:
                     current_line.append(word)
                     current_length += len(word) + 1
-            
+                
             if current_line:
                 lines.append(" ".join(current_line))
                 
@@ -997,9 +1000,10 @@ class Graphs:
                 for p in pazienti:
                     if p.opDay > max_day:
                         max_day = p.opDay
-                        
-        num_weeks = 1 if max_day == 0 else int((max_day - 1) // WEEK_LENGTH_DAYS + 1)
-        num_months = (num_weeks - 1) // 4 + 1
+        weeks_per_month = Settings.weeks_per_month
+        # num_weeks = 1 if max_day == 0 else int((max_day - 1) // WEEK_LENGTH_DAYS + 1)
+        num_weeks = (max_day // WEEK_LENGTH_DAYS) + 1
+        num_months = (num_weeks - 1) // weeks_per_month + 1
 
         # 2. Costruzione della struttura delle colonne
         colonne_base = ["Scenario", "Specialità", "N. Pazienti", "Attesa Media"]
@@ -1016,14 +1020,15 @@ class Graphs:
             colonne_dettagliate.append(f"Straordinari<br>W{w}")
             current_col_idx += 2
 
-            # Ogni 4 settimane (o alla fine della simulazione), inserisci il Riepilogo Mensile
-            if w % 4 == 0 or w == num_weeks:
-                m = (w - 1) // 4 + 1
-                colonne_dettagliate.append(f"Media OR<br>M{m}")
-                colonne_dettagliate.append(f"Media ST<br>M{m}")
+            weeks_per_month = Settings.weeks_per_month
+
+            if w % weeks_per_month == 0 or w == num_weeks:
+                m = (w - 1) // weeks_per_month + 1
+                colonne_dettagliate.append(f"Media OR<br>Mese {m}")
+                colonne_dettagliate.append(f"Media Stra.<br>Mese {m}")
                 
-                colonne_sintetiche.append(f"Media OR<br>M{m}")
-                colonne_sintetiche.append(f"Media ST<br>M{m}")
+                colonne_sintetiche.append(f"Media OR<br>Mese {m}")
+                colonne_sintetiche.append(f"Media Stra.<br>Mese {m}")
                 
                 # Gli indici dei riepiloghi mensili restano visibili anche nella vista sintetica
                 indices_sintetici.append(current_col_idx)
@@ -1034,11 +1039,17 @@ class Graphs:
         hover_data_full = []
         std_limit_daily = DAILY_OPERATION_LIMIT
 
+        scenario_end_rows = []
+        current_row_idx = 0
+
         # 3. Elaborazione Dati
         for scenario_name, operation_data in scenari.items():
+            scenario_has_rows = False
             for spec_name, pazienti in operation_data.items():
                 if not pazienti or len(pazienti) == 0:
                     continue
+
+                scenario_has_rows = True
 
                 self._log_dataset_snapshot(
                     context=f"comparison_table:{scenario_name}:{spec_name}",
@@ -1082,7 +1093,8 @@ class Graphs:
                 month_st_pcts = []
 
                 for w in range(1, num_weeks + 1):
-                    giorni_settimana = range((w - 1) * WEEK_LENGTH_DAYS + 1, w * WEEK_LENGTH_DAYS + 1)
+                    # giorni_settimana = range((w - 1) * WEEK_LENGTH_DAYS + 1, w * WEEK_LENGTH_DAYS + 1)
+                    giorni_settimana = range((w - 1) * WEEK_LENGTH_DAYS, w * WEEK_LENGTH_DAYS)
                     used_std_weekly = 0
                     used_extra_weekly = 0
                     std_limit_daily_total = std_limit_daily * num_rooms
@@ -1119,8 +1131,8 @@ class Graphs:
                     )
 
                     # Calcolo e aggiunta del Riepilogo Mensile
-                    if w % 4 == 0 or w == num_weeks:
-                        m = (w - 1) // 4 + 1
+                    if w % weeks_per_month == 0 or w == num_weeks:
+                        m = (w - 1) // weeks_per_month + 1
                         avg_or = round(sum(month_or_pcts) / len(month_or_pcts), 1)
                         avg_st = round(sum(month_st_pcts) / len(month_st_pcts), 1)
 
@@ -1136,6 +1148,11 @@ class Graphs:
 
                 rows_data_full.append(row_cells)
                 hover_data_full.append(row_hover)
+                current_row_idx += 1
+
+            if scenario_has_rows:
+                # Salva il confine sotto l'ultima riga dello scenario
+                scenario_end_rows.append(current_row_idx - 1)
 
         if not rows_data_full:
             return
@@ -1196,6 +1213,22 @@ class Graphs:
         min_col_width = 110
         width_synth = max(800, len(colonne_sintetiche) * min_col_width)
         width_full = max(800, len(colonne_dettagliate) * min_col_width)
+
+        # Disegna una linea orizzontale marcata sotto ogni scenario (tranne l'ultimo)
+        for end_idx in scenario_end_rows[:-1]:
+            fig.add_shape(
+                type="line",
+                xref="paper",
+                yref="y",
+                x0=0,
+                x1=1,
+                y0=end_idx + 0.5,
+                y1=end_idx + 0.5,
+                line=dict(
+                    color="#1e293b", 
+                    width=4           
+                )
+            )
 
         # 5. Aggiunta Menu (Updatemenus)
         fig.update_layout(
