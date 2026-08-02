@@ -24,8 +24,8 @@ def main():
         Settings.week_hours_to_fill
     )
 
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/Data"
-
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # + "/Data"
+    data_root = os.path.join(project_root, Settings.resultsData_folder)
     paths = generate_csv(
         specialties=specialties,
         weekly_hours=weekly_hours,
@@ -34,25 +34,27 @@ def main():
         specialty_params=Settings.specialty_params,
         people_distribution=Settings.daily_patient_arrival_distribution,
         priority_params=Settings.priority_params,  # <-- passa il nuovo dizionario
-        filepath=project_root,
+        filepath=data_root,
     )
-
+    # la funzione generate_csv restituisce il path del seed come primo argomento
     resultsData_folder = os.path.dirname(os.path.abspath(paths[0]))
 
     all_patient_records = read_and_split_by_operation_with_metadata(paths[0])
 
-    schedule = group_daily_with_mtb_logic_optimized_rot(all_patient_records)
-    scheduleJson_path = export_json_schedule(schedule.to_dict(), resultsData_folder)
+    schedule = group_daily_with_mtb_logic_optimized_rot(all_patient_records, resultsData_folder)
     plan_eot = None
     try:
-        with open("./Data/Rot/extra_time.json", "r", encoding="utf-8") as f:
+        with open(f"{resultsData_folder}/extra_time.json", "r", encoding="utf-8") as f:
             extra = json.load(f)
         plan_eot = extra.get("plan_eot", None)
     except Exception as e:
         print(f"[WARN] plan_eot non letto: {e}")
 
+    schedule_stimato_ripianificato = CreateScheduleWithReplanned(schedule, plan_eot)
+    scheduleJson_path = export_json_schedule(schedule_stimato_ripianificato.to_dict(), resultsData_folder)
+    
     Graphs(f"{resultsData_folder}{Settings.images_folder}").MakeGraphs(
-        schedule, plan_eot=plan_eot
+        schedule_stimato_ripianificato, plan_eot=plan_eot
     )
 
 
@@ -62,11 +64,6 @@ def main():
     )
     Graphs(f"{resultsData_folder + '/rot_cplex/'}{Settings.images_folder}").MakeGraphs(
         schedule_rot_cplex, plan_eot=plan_eot, use_rot_as_primary=True
-    )
-
-    schedule_stimato_ripianificato = CreateScheduleWithReplanned(schedule, plan_eot)
-    scheduleJson_path = export_json_schedule(
-        schedule_stimato_ripianificato.to_dict(), resultsData_folder + "/temp/"
     )
 
     dictSchedules = {

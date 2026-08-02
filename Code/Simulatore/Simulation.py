@@ -30,9 +30,9 @@ from settings import Settings
 from Simulatore.Optimizer import optimize_daily_batch_rot_both
 
 # ── Costanti di output ───────────────────────────────────────────────────────
-_ROT_OUTPUT_DIR = "./Data/Rot/"
-_EXTRA_TIME_FILE = _ROT_OUTPUT_DIR + "extra_time.json"
-_OVERFLOW_FILE = _ROT_OUTPUT_DIR + "overflow.json"
+_ROT_OUTPUT_DIR = "./Data/"
+_EXTRA_TIME_FILE = "extra_time.json"
+_OVERFLOW_FILE = "overflow.json"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -88,6 +88,7 @@ def read_and_split_by_operation_with_metadata(csv_file: str) -> dict:
 
 def group_daily_with_mtb_logic_optimized_rot(
     ops_dict: PatientListForSpecialties,
+    data_folder: str = "./Data/",
 ) -> PatientListForSpecialties:
     """
     Pianifica l'intero orizzonte settimanale usando il doppio flusso EOT/ROT:
@@ -171,9 +172,9 @@ def group_daily_with_mtb_logic_optimized_rot(
         realtime_stats[op_type] = data[op_type].get("realtime_stats", [])
 
     # ── Serializzazione output ────────────────────────────────────────────────
-    os.makedirs(_ROT_OUTPUT_DIR, exist_ok=True)
-
-    with open(_EXTRA_TIME_FILE, "w", encoding="utf-8") as f:
+    #os.makedirs(_ROT_OUTPUT_DIR, exist_ok=True)
+    extra_time_file = os.path.join(data_folder, _EXTRA_TIME_FILE)
+    with open(extra_time_file, "w", encoding="utf-8") as f:
         json.dump(
             {
                 "extra_times": extra_times,
@@ -183,8 +184,8 @@ def group_daily_with_mtb_logic_optimized_rot(
             f,
             indent=4,
         )
-
-    with open(_OVERFLOW_FILE, "w", encoding="utf-8") as f:
+    overflow_file = os.path.join(data_folder, _OVERFLOW_FILE)
+    with open(overflow_file, "w", encoding="utf-8") as f:
         json.dump(overflows.to_json(), f, indent=4)
 
     return result

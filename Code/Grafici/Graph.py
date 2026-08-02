@@ -160,10 +160,11 @@ class Graphs:
     graph_data_log_path: str | None = None
 
     def __init__(
-        self, folderPath: str = os.path.dirname(os.path.abspath(__file__)) + "/Images"
-    ):
-        """Inizializza il gestore dei grafici.
-
+            self,
+            folderPath: str = os.path.dirname(os.path.abspath(__file__)) + "/Images"
+                ):
+        """
+        Inizializza il gestore dei grafici.
         Args:
             folderPath: Percorso della cartella dove salvare i grafici HTML (default: Images/)
         """
@@ -276,8 +277,7 @@ class Graphs:
                 handle.write(log_line + "\n")
 
     def _show_figure(self, fig: go.Figure, name: str = "grafico") -> None:
-        """Salva il grafico in HTML e opzionalmente lo visualizza.
-        
+        """Salva il grafico in HTML e opzionalmente lo visualizza.     
         Args:
             fig: Figura Plotly da salvare
             name: Nome del file HTML (senza estensione)
@@ -289,10 +289,8 @@ class Graphs:
 
     def _get_color_map(self, ids: list[int]) -> dict[int, str]:
         """Genera una mappa colori progressiva HSL per gli ID pazienti.
-
         Args:
             ids: Lista ordinata di ID pazienti
-
         Returns:
             Dizionario {id: colore_hsl}
         """
@@ -305,8 +303,8 @@ class Graphs:
     def _create_limit_line_shape(
         self, x0: float, x1: float, y: float, color: str = "red"
     ) -> dict:
-        """Crea una forma linea per il grafico Plotly.
-
+        """
+        Crea una forma linea per il grafico Plotly.
         Args:
             x0, x1: Coordinate X inizio e fine
             y: Coordinata Y
@@ -327,8 +325,8 @@ class Graphs:
     def _get_free_time_per_day(
         self, patients: list, day: int, metric: str = "eot"
     ) -> float:
-        """Calcola il tempo libero in una sala per un determinato giorno.
-
+        """
+        Calcola il tempo libero in una sala per un determinato giorno.
         Args:
             patients: Lista pazienti della sala
             day: Numero del giorno
@@ -343,6 +341,7 @@ class Graphs:
 
     #endregion: Funzioni interne
     #region: Funzioni dei grafici 
+    
     def BoxPlotUnusedTime(self, weeks: PatientListForSpecialties, title: str) -> None:
         """Crea un box plot del tempo inutilizzato per settimana e per sala operatoria.
         
@@ -415,77 +414,6 @@ class Graphs:
 
     """
 
-    def PrintWaitingTimeBoxPlotGraph_withEOTplanned(
-        self,
-        operations: PatientListForSpecialties,
-        basetitle: str,
-        plan_eot: dict | None = None,
-        use_rot_as_primary: bool = False,
-    ) -> None:
-        
-        # 1. Sovrascrive/integra operations dando priorità a plan_eot
-        operations_updated = CreateScheduleWithReplanned(operations, plan_eot)
-        for op, patients_real in operations_updated.items():
-            if not patients_real:
-                continue
-            title = basetitle + op
-            self._log_dataset_snapshot(
-                context=f"waiting_time_boxplot_with_plan:{op}",
-                patients=patients_real,
-                plan_entries=plan_eot.get(op, []) if plan_eot is not None else None,
-                extra={"use_rot_as_primary": use_rot_as_primary},
-            )
-            # 2. Selezione ed estrazione uniforme
-            rows = []
-            seen_ids = set()
-            for p in patients_real:
-                p_id = p.get("id") if isinstance(p, dict) else getattr(p, "id", None)
-                p_day = p.get("day", 0) if isinstance(p, dict) else getattr(p, "day", 0)
-                p_mtb = p.get("mtb", None) if isinstance(p, dict) else getattr(p, "mtb", None)
-                p_opDay = p.get("opDay", -1) if isinstance(p, dict) else getattr(p, "opDay", -1)
-                if p_id is not None and p_id not in seen_ids:
-                    seen_ids.add(p_id)
-                    rows.append(
-                        {
-                            "ID": p_id,
-                            "Data inserimento": p_day,
-                            "MTB": p_mtb,
-                            "Data operazione": p_opDay,
-                        }
-                    )
-            df = pd.DataFrame(rows)
-            df = df[df["Data operazione"] != -1].dropna(subset=["Data operazione"])
-            if df.empty:
-                continue
-            df["Tempo_attesa"] = df["Data operazione"] - df["Data inserimento"]
-            max_day = df["Data operazione"].max()
-            data = []
-            for week_num, week_start, week_end in self._build_week_ranges(
-                max_day, WEEK_LENGTH_DAYS
-            ):
-                waiting_times = df[df["Data operazione"].between(week_start, week_end)][
-                    "Tempo_attesa"
-                ]
-                data.append(
-                    go.Box(
-                        y=waiting_times,
-                        name=f"Sett {week_num}",
-                        boxmean="sd",
-                        marker_color="indianred",
-                    )
-                )
-            fig = go.Figure(data)
-            metric_label = (
-                "Dati REALI (ROT)" if use_rot_as_primary else "Dati PIANIFICATI (EOT)"
-            )
-            fig.update_layout(
-                title=f"{title} - {metric_label}",
-                yaxis_title="Tempo di attesa (giorni)",
-                xaxis_title="Settimane",
-                template="plotly_white",
-            )
-            self._show_figure(fig, name=f"WaitingTimeBoxPlot_withEOTplanned_{op}")
-
     def PrintWaitingTimeBoxPlotGraph(
         self,
         operations: PatientListForSpecialties,
@@ -552,408 +480,6 @@ class Graphs:
                 xaxis_title="Settimane",
             )
             self._show_figure(fig, name=f"WaitingTimeBoxPlot_{op}")
-
-    def PrintDailyBoxGraph_withEOTplanned(
-        self,
-        operation: PatientListForSpecialties,
-        baseTitle: str,
-        plan_eot: dict | None = None,
-        use_rot_as_primary: bool = False,
-    ):
-        
-        limite_massimo = DAILY_OPERATION_LIMIT
-
-        # Aggiorna la struttura operation usando la priorità di plan_eot
-        operation_updated = CreateScheduleWithReplanned(operation, plan_eot)
-
-        for op, patients_real in operation_updated.items():
-            if not patients_real:
-                continue
-            xline = WEEK_LENGTH_DAYS * Settings.workstations_config[op]
-            title = baseTitle + op
-            self._log_dataset_snapshot(
-                context=f"daily_boxplot_with_plan:{op}",
-                patients=patients_real,
-                plan_entries=plan_eot.get(op, []) if plan_eot is not None else None,
-                extra={"use_rot_as_primary": use_rot_as_primary},
-            )
-
-            # --- Pianificato EOT (lista di dict)  ---
-            plan_list = self._normalize_plan_entries(
-                plan_eot.get(op, []) if plan_eot is not None else None
-            )
-
-            fig = go.Figure()
-
-            # Colori: usa l’unione degli ID (pianificato + reale) così restano coerenti
-            ids = set(p.id for p in patients_real)
-            if plan_list is not None:
-                for pp in plan_list:
-                    if isinstance(pp, dict) and "id" in pp:
-                        ids.add(pp["id"])
-
-            ids = sorted(ids)
-            num_patients = max(1, len(ids))
-            color_map_progressive = {
-                pid: f"hsl({int(i * 360 / num_patients)}, 70%, 50%)"
-                for i, pid in enumerate(ids)
-            }
-
-            # range settimane (come prima)
-            last_day_real = max(p.opDay for p in patients_real) if patients_real else 0
-            last_day_plan = (
-                max((pp.get("opDay", 0) for pp in plan_list), default=0)
-                if plan_list is not None
-                else 0
-            )
-            last_day = max(last_day_real, last_day_plan)
-            num_weeks = (last_day // WEEK_LENGTH_DAYS) + 1
-
-            # linea limite
-            shape_limite_massimo = [
-                dict(
-                    type="line",
-                    x0=-0.5,
-                    x1=xline - 0.5,
-                    y0=limite_massimo,
-                    y1=limite_massimo,
-                    line=dict(color="red", width=2, dash="dash"),
-                )
-            ]
-
-            shapes_by_week = {}
-            trace_idx_by_week = {w: [] for w in range(num_weeks)}
-
-            # --- costruisco TRACES per settimana (visivo identico: EOT front + ROT back) ---
-            for weekNum in range(num_weeks):
-                shapes = []
-                extra_time_pool = WEEKLY_EXTRA_TIME_POOL
-                week_start_day = weekNum * WEEK_LENGTH_DAYS
-
-                for day in range(
-                    week_start_day,
-                    week_start_day + WEEK_LENGTH_DAYS,
-                ):
-                    for room_id in range(Settings.workstations_config[op]):
-
-                        # REAL (ROT) -> pazienti reali
-                        real_day_room = [
-                            p
-                            for p in patients_real
-                            if p.workstation == room_id + 1 and p.opDay == day
-                        ]
-                        minsRot = round(sum(p.rot for p in real_day_room), 2)
-
-                        # PLAN (EOT) -> dict dal pianificato, se disponibile; altrimenti fallback: usa gli stessi pazienti reali
-                        if plan_list is not None:
-                            plan_day_room = [
-                                pp
-                                for pp in plan_list
-                                if pp.get("workstation", None) == room_id + 1
-                                and pp.get("opDay", None) == day
-                            ]
-                        else:
-                            plan_day_room = None
-
-                        mins = 0.0
-                        if plan_day_room is not None:
-                            mins = round(
-                                sum(
-                                    float(pp.get("eot", 0) or 0) for pp in plan_day_room
-                                ),
-                                2,
-                            )
-                        else:
-                            mins = round(sum(p.eot for p in real_day_room), 2)
-
-                        # Determina quale valore usare come primario e secondario
-                        primary_mins = minsRot if use_rot_as_primary else mins
-                        secondary_label = (
-                            "EOT (pianificato)" if use_rot_as_primary else "ROT (reale)"
-                        )
-                        primary_label = (
-                            "ROT (reale)" if use_rot_as_primary else "EOT (pianificato)"
-                        )
-
-                        # x identico: tot EOT e tot ROT nella label
-                        week_label = START_WEEK_SCHEDULING + weekNum
-                        xtext = f"W:{week_label}|D:{day}|OR:{room_id+1}|<br>ToTMin:{mins}|<br>RoTMin:{minsRot}"
-
-                        # --- FRONT: Metrica primaria (EOT se not use_rot_as_primary, ROT altrimenti) ---
-                        if use_rot_as_primary:
-                            # ROT come primario (sempre dal reale)
-                            for p in real_day_room:
-                                fig.add_trace(
-                                    go.Bar(
-                                        x=[xtext],
-                                        y=[p.rot],
-                                        name=f"Patient {p.id}",
-                                        text=[
-                                            f"Patient {p.id}: {int(p.rot)}m {int((p.rot % 1) * 60)}s"
-                                        ],
-                                        hovertemplate=f"Paziente {p.id}<br>ROT: {p.rot:.2f} min<br>D:{p.day}|MTB:{p.mtb}<extra>ROT (reale)</extra>",
-                                        marker=dict(
-                                            color=color_map_progressive.get(
-                                                p.id, "gray"
-                                            )
-                                        ),
-                                        cliponaxis=True,
-                                        textposition="inside",
-                                        offsetgroup="front",
-                                        visible=(
-                                            weekNum == 0
-                                        ),
-                                    )
-                                )
-                                trace_idx_by_week[weekNum].append(len(fig.data) - 1)
-                        elif plan_day_room is not None:
-                            for pp in plan_day_room:
-                                pid = pp.get("id", None)
-                                if pid is None:
-                                    continue
-                                peot = float(pp.get("eot", 0) or 0)
-                                pday = pp.get("day", None)
-                                pmtb = pp.get("mtb", None)
-
-                                fig.add_trace(
-                                    go.Bar(
-                                        x=[xtext],
-                                        y=[peot],
-                                        name=f"Patient {pid}",
-                                        text=[
-                                            f"Patient {pid}: {int(peot)}m {int((peot % 1) * 60)}s"
-                                        ],
-                                        hovertemplate=f"Paziente {pid}<br>EOT: {peot:.2f} min<br>D:{pday}|MTB:{pmtb}<extra>EOT (pianificato)</extra>",
-                                        marker=dict(
-                                            color=color_map_progressive.get(pid, "gray")
-                                        ),
-                                        cliponaxis=True,
-                                        textposition="inside",
-                                        offsetgroup="front",
-                                        visible=(
-                                            weekNum == 0
-                                        ),
-                                    )
-                                )
-                                trace_idx_by_week[weekNum].append(len(fig.data) - 1)
-                        else:
-                            for p in real_day_room:
-                                fig.add_trace(
-                                    go.Bar(
-                                        x=[xtext],
-                                        y=[p.eot],
-                                        name=f"Patient {p.id}",
-                                        text=[
-                                            f"Patient {p.id}: {int(p.eot)}m {int((p.eot % 1) * 60)}s"
-                                        ],
-                                        hovertemplate=f"Paziente {p.id}<br>EOT: {p.eot:.2f} min<br>D:{p.day}|MTB:{p.mtb}<extra>EOT (pianificato)</extra>",
-                                        marker=dict(
-                                            color=color_map_progressive.get(
-                                                p.id, "gray"
-                                            )
-                                        ),
-                                        cliponaxis=True,
-                                        textposition="inside",
-                                        offsetgroup="front",
-                                        visible=(
-                                            weekNum == 0
-                                        ),
-                                    )
-                                )
-                                trace_idx_by_week[weekNum].append(len(fig.data) - 1)
-
-                        # --- BACK: Metrica secondaria (ROT se not use_rot_as_primary, EOT altrimenti) ---
-                        if use_rot_as_primary:
-                            if plan_day_room is not None:
-                                for pp in plan_day_room:
-                                    pid = pp.get("id", None)
-                                    if pid is None:
-                                        continue
-                                    peot = float(pp.get("eot", 0) or 0)
-                                    pday = pp.get("day", None)
-                                    pmtb = pp.get("mtb", None)
-
-                                    fig.add_trace(
-                                        go.Bar(
-                                            x=[xtext],
-                                            y=[peot],
-                                            name=f"Patient {pid} EOT",
-                                            text=[
-                                                f"Patient {pid} EOT: {int(peot)}m {int((peot % 1) * 60)}s"
-                                            ],
-                                            hovertemplate=f"Paziente {pid}<br>EOT: {peot:.2f} min<br>D:{pday}|MTB:{pmtb}<extra>EOT (pianificato)</extra>",
-                                            marker=dict(
-                                                color=color_map_progressive.get(
-                                                    pid, "gray"
-                                                ),
-                                                opacity=0.3,
-                                            ),
-                                            cliponaxis=True,
-                                            textposition="inside",
-                                            offsetgroup="back",
-                                            offset=-0.2,
-                                            visible=(
-                                                weekNum
-                                                == 0
-                                            ),
-                                        )
-                                    )
-                                    trace_idx_by_week[weekNum].append(len(fig.data) - 1)
-                            else:
-                                for p in real_day_room:
-                                    fig.add_trace(
-                                        go.Bar(
-                                            x=[xtext],
-                                            y=[p.eot],
-                                            name=f"Patient {p.id} EOT",
-                                            text=[
-                                                f"Patient {p.id} EOT: {int(p.eot)}m {int((p.eot % 1) * 60)}s"
-                                            ],
-                                            hovertemplate=f"Paziente {p.id}<br>EOT: {p.eot:.2f} min<br>D:{p.day}|MTB:{p.mtb}<extra>EOT (pianificato)</extra>",
-                                            marker=dict(
-                                                color=color_map_progressive.get(
-                                                    p.id, "gray"
-                                                ),
-                                                opacity=0.3,
-                                            ),
-                                            cliponaxis=True,
-                                            textposition="inside",
-                                            offsetgroup="back",
-                                            offset=-0.2,
-                                            visible=(
-                                                weekNum
-                                                == 0
-                                            ),
-                                        )
-                                    )
-                                    trace_idx_by_week[weekNum].append(len(fig.data) - 1)
-                        else:
-                            for p in real_day_room:
-                                fig.add_trace(
-                                    go.Bar(
-                                        x=[xtext],
-                                        y=[p.rot],
-                                        name=f"Patient {p.id} ROT",
-                                        text=[
-                                            f"Patient {p.id} ROT: {int(p.rot)}m {int((p.rot % 1) * 60)}s"
-                                        ],
-                                        hovertemplate=f"Paziente {p.id}<br>ROT: {p.rot:.2f} min<br>D:{p.day}|MTB:{p.mtb}<extra>ROT (reale)</extra>",
-                                        marker=dict(
-                                            color=color_map_progressive.get(
-                                                p.id, "gray"
-                                            ),
-                                            opacity=0.3,
-                                        ),
-                                        cliponaxis=True,
-                                        textposition="inside",
-                                        offsetgroup="back",
-                                        offset=-0.2,
-                                        visible=(
-                                            weekNum == 0
-                                        ),
-                                    )
-                                )
-                                trace_idx_by_week[weekNum].append(len(fig.data) - 1)
-
-                    # linea extra giornaliero (come prima, basata sui ROT reali)
-                    dayNumInWeek = day - week_start_day
-                    x0 = dayNumInWeek * Settings.workstations_config[op] - 0.5
-                    x1 = (dayNumInWeek + 1) * Settings.workstations_config[op] - 0.5
-
-                    shapes.append(
-                        dict(
-                            type="line",
-                            x0=x0,
-                            x1=x1,
-                            y0=limite_massimo + extra_time_pool,
-                            y1=limite_massimo + extra_time_pool,
-                            line=dict(color="green", width=2, dash="dash"),
-                        )
-                    )
-
-                    val = (limite_massimo * Settings.workstations_config[op]) - sum(
-                        p.rot for p in patients_real if p.opDay == day
-                    )
-                    extra_time_pool = max(0, extra_time_pool + min(0, val))
-
-                shapes_by_week[weekNum] = shapes
-
-            # --- bottoni settimana: visibilità corretta anche se PLAN e REAL hanno num barre diverso ---
-            buttons = []
-            total_traces = len(fig.data)
-            for weekNum in range(num_weeks):
-                visible = [False] * total_traces
-                for idx in trace_idx_by_week[weekNum]:
-                    if 0 <= idx < total_traces:
-                        visible[idx] = True
-                buttons.append(
-                    dict(
-                        label=f"Settimana {weekNum}",
-                        method="update",
-                        args=[
-                            {"visible": visible},
-                            {
-                                "title": title,
-                                "shapes": shape_limite_massimo
-                                + shapes_by_week[weekNum],
-                            },
-                        ],
-                    )
-                )
-
-            fig.update_xaxes(showticklabels=True)
-            fig.update_traces(showlegend=False, selector=dict(offsetgroup="back"))
-
-            fig.add_annotation(
-                x=xline - 1,
-                y=limite_massimo,
-                text=f"{limite_massimo} minuti (limite giornaliero)",
-                showarrow=False,
-                yshift=10,
-                font=dict(color="red"),
-            )
-            fig.add_annotation(
-                x=0.5,
-                y=WEEKLY_EXTRA_TIME_POOL + limite_massimo,
-                text="minuti massimi di straordinario disponibili",
-                showarrow=False,
-                yshift=10,
-                font=dict(color="green"),
-            )
-            metric_text = (
-                "ROT = barra piena | EOT = barra trasparente"
-                if use_rot_as_primary
-                else "EOT = barra piena | ROT = barra trasparente"
-            )
-            fig.add_annotation(
-                x=0.01,
-                y=1.08,
-                xref="paper",
-                yref="paper",
-                text=metric_text,
-                showarrow=False,
-                align="left",
-            )
-
-            fig.update_layout(
-                updatemenus=[
-                    dict(
-                        active=0,
-                        buttons=buttons,
-                        x=0.95,
-                        y=1.1,
-                        xanchor="right",
-                        yanchor="top",
-                    )
-                ],
-                barmode="stack",  # come prima nel tuo layout finale
-                title=title,
-                showlegend=False,
-                yaxis_title="Minuti Totali",
-                xaxis_title="Giorni",
-            )
-
-            self._show_figure(fig, name=f"DailyBoxGraph_withTraslatedPatients_{op}")
 
     def PrintDailyBoxGraph(
         self,
@@ -1194,166 +720,6 @@ class Graphs:
 
             self._show_figure(fig, name=f"DailyBoxGraph_{op}")
 
-    def PrintTrendLineGraph_withEOTplanned(
-        self,
-        operation: PatientListForSpecialties,
-        baseTitle: str,
-        plan_eot: dict | None = None,
-        use_rot_as_primary: bool = False,
-    ) -> None:
-        """Crea grafico di tendenza del carico operatorio con doppio asse Y senza duplicati di ID paziente."""
-        use_rot_as_primary = True
-        operation_updated = CreateScheduleWithReplanned(operation, plan_eot)
-
-        for op, patients_real in operation_updated.items():
-            if not patients_real:
-                continue
-            title = baseTitle + op
-            self._log_dataset_snapshot(
-                context=f"trend_line_with_plan:{op}",
-                patients=patients_real,
-                plan_entries=plan_eot.get(op, []) if plan_eot is not None else None,
-                extra={"use_rot_as_primary": use_rot_as_primary},
-            )
-
-            # --- 1. Pulizia globale del pianificato ---
-            plan_list = self._normalize_plan_entries(
-                plan_eot.get(op, []) if plan_eot is not None else None
-            )
-
-            last_day_real = max(p.opDay for p in patients_real) if patients_real else 0
-            last_day_plan = (
-                max((pp.get("opDay", 0) for pp in plan_list), default=0)
-                if plan_list is not None
-                else 0
-            )
-            last_day = max(last_day_real, last_day_plan)
-
-            num_weeks = (last_day // WEEK_LENGTH_DAYS) + 1
-            total_days = num_weeks * WEEK_LENGTH_DAYS
-            start_day = 0
-            days_title = [
-                f"Day:{day_offset}" for day_offset in range(total_days)
-                ]
-
-            start_index = 0
-
-            room_ids = range(Settings.workstations_config[op])
-            room_free_time = {room_id + 1: [] for room_id in room_ids}
-            room_patient = {room_id + 1: [] for room_id in room_ids}
-
-            for day_offset in range(total_days):
-                day = start_day + day_offset
-                for room_id in room_ids:
-
-                    # --- Filtro Reali Univoci per Giorno/Sala ---
-                    raw_real = [
-                        p
-                        for p in patients_real
-                        if p.workstation == room_id + 1 and p.opDay == day
-                    ]
-                    daily_patients_real = []
-                    seen_real = set()
-                    for p in raw_real:
-                        if p.id not in seen_real:
-                            seen_real.add(p.id)
-                            daily_patients_real.append(p)
-
-                    # --- Filtro Pianificati Univoci per Giorno/Sala ---
-                    if plan_list is not None:
-                        raw_plan = [
-                            pp
-                            for pp in plan_list
-                            if pp.get("workstation", None) == room_id + 1
-                            and pp.get("opDay", None) == day
-                        ]
-                        daily_patients_plan = []
-                        seen_plan = set()
-                        for pp in raw_plan:
-                            pid = pp.get("id")
-                            if pid not in seen_plan:
-                                seen_plan.add(pid)
-                                daily_patients_plan.append(pp)
-                    else:
-                        daily_patients_plan = None
-
-                    # Conteggio corretto senza duplicati
-                    if use_rot_as_primary:
-                        patient_count = len(daily_patients_real)
-                    else:
-                        patient_count = (
-                            len(daily_patients_plan)
-                            if daily_patients_plan is not None
-                            else len(daily_patients_real)
-                        )
-
-                    # Calcolo metriche di tempo basate sulle liste deduplicate
-                    if use_rot_as_primary:
-                        time_metric = sum(p.rot for p in daily_patients_real)
-                    else:
-                        if daily_patients_plan is not None:
-                            time_metric = sum(
-                                float(pp.get("eot", 0) or 0)
-                                for pp in daily_patients_plan
-                            )
-                        else:
-                            time_metric = sum(p.eot for p in daily_patients_real)
-
-                    free_time = DAILY_OPERATION_LIMIT - time_metric
-                    room_free_time[room_id + 1].append(free_time)
-                    room_patient[room_id + 1].append(patient_count)
-
-            fig = make_subplots(specs=[[{"secondary_y": True}]])
-
-            for room_id, counts in room_patient.items():
-                fig.add_trace(
-                    go.Bar(
-                        x=days_title,
-                        y=counts,
-                        name=f"OR:{room_id} Pazienti",
-                        opacity=0.6,
-                        hovertemplate="%{y}<extra>Pazienti</extra>",
-                    ),
-                    secondary_y=True,
-                )
-
-            for room_id, times in room_free_time.items():
-                fig.add_trace(
-                    go.Scatter(
-                        x=days_title,
-                        y=times,
-                        name=f"OR:{room_id} Tempo libero",
-                        mode="lines+markers",
-                        hovertemplate="%{y:.2f}<extra>Minuti Liberi</extra>",
-                    ),
-                    secondary_y=False,
-                )
-
-            if START_WEEK_SCHEDULING >= 1:
-                fig.add_vline(
-                    x=start_index - 0.5,
-                    line={"color": "orange", "width": 2, "dash": "dash"},
-                    annotation_text="Inizio Schedulazione",
-                    annotation_position="top right",
-                    annotation_font_color="orange",
-                )
-
-            metric_label = (
-                "Basato su ROT (Reale)"
-                if use_rot_as_primary
-                else "Basato su EOT (Pianificato)"
-            )
-            fig.update_layout(
-                title=f"{title} - {metric_label}",
-                xaxis_title="Giorno",
-                template="plotly_white",
-                barmode="group",
-            )
-            fig.update_yaxes(title_text="Tempo libero (minuti)", secondary_y=False)
-            fig.update_yaxes(title_text="Numero pazienti", secondary_y=True)
-
-            self._show_figure(fig, name=f"TrendLineGraph_withEOTplanned_{op}")
-
     def PrintTrendLineGraph(
         self,
         operation: PatientListForSpecialties,
@@ -1467,158 +833,6 @@ class Graphs:
             fig.update_yaxes(title_text="Numero pazienti", secondary_y=True)
 
             self._show_figure(fig, name=f"TrendLineGraph_{op}")
-
-    def PrintWaitingListLineGraph_withEOTplanned(
-        self,
-        operations: PatientListForSpecialties,
-        baseTitle: str,
-        plan_eot: dict | None = None,
-        use_rot_as_primary: bool = False,
-    ) -> None:
-        """Crea grafico dell'evoluzione della lista d'attesa nel tempo.
-        
-        Mostra: pazienti aggiunti, pazienti operati, e pazienti ancora in attesa.
-        
-        Args:
-            operations: PatientListForSpecialties con i dati reali
-            baseTitle: Titolo base del grafico
-            plan_eot: Dizionario contenente la programmazione pianificata EOT
-            use_rot_as_primary: Se True usa i dati reali, altrimenti usa il pianificato (EOT)
-        """
-        
-        operations_updated = CreateScheduleWithReplanned(operations, plan_eot)
-
-        for op, patients_real in operations_updated.items():
-            if not patients_real:
-                continue
-            title = baseTitle + op
-            self._log_dataset_snapshot(
-                context=f"waiting_list_line_with_plan:{op}",
-                patients=patients_real,
-                plan_entries=plan_eot.get(op, []) if plan_eot is not None else None,
-                extra={"use_rot_as_primary": use_rot_as_primary},
-            )
-
-            # --- 1. Estrazione e pulizia dati PIANIFICATI (EOT) ---
-            plan_list = self._normalize_plan_entries(
-                plan_eot.get(op, []) if plan_eot is not None else None
-            )
-
-            # --- 2. Raggruppamento e Deduplicazione con Set (ID unici per giorno) ---
-            new_patient_list = defaultdict(set)
-            resolved_list = defaultdict(set)
-
-            # Selezione del dataset in base alla metrica primaria scelta
-            if use_rot_as_primary or plan_list is None:
-                for p in patients_real:
-                    p_id = self._get_patient_value(p, "id")
-                    p_day = self._get_patient_value(p, "day")
-                    p_op_day = self._get_patient_value(p, "opDay", -1)
-                    if p_id is not None:
-                        if p_day is not None:
-                            new_patient_list[p_day].add(p_id)
-                        if p_op_day != -1 and p_op_day is not None:
-                            resolved_list[p_op_day].add(p_id)
-            else:
-                for pp in plan_list:
-                    pid = pp.get("id")
-                    pday = pp.get("day")
-                    pop_day = pp.get("opDay", -1)
-                    if pid is not None:
-                        if pday is not None:
-                            new_patient_list[pday].add(pid)
-                        if pop_day != -1 and pop_day is not None:
-                            resolved_list[pop_day].add(pid)
-
-            # Ordina i dizionari per giorno
-            new_patient_list = dict(sorted(new_patient_list.items()))
-            resolved_list = dict(sorted(resolved_list.items()))
-
-            # Conta i pazienti UNICI per giorno
-            new_patient_count = {day: len(ids) for day, ids in new_patient_list.items()}
-            resolved_count = {day: len(ids) for day, ids in resolved_list.items()}
-
-            # --- 3. Calcolo dei pazienti in attesa cumulativi ---
-            waiting_count = {}
-            total_waiting = 0
-            max_day = max(
-                max(new_patient_count.keys(), default=0),
-                max(resolved_count.keys(), default=0),
-            )
-
-            # Scansione lineare per il calcolo cumulativo (incluso eventuale giorno 0)
-            for day in range(max_day + 1):
-                total_waiting += new_patient_count.get(day, 0)
-                total_waiting -= resolved_count.get(day, 0)
-                waiting_count[day] = total_waiting
-
-            # --- 4. Costruzione del Grafico Plotly ---
-            fig = go.Figure()
-
-            days_range = list(range(max_day + 1))
-            y_added = [new_patient_count.get(d, 0) for d in days_range]
-            y_resolved = [resolved_count.get(d, 0) for d in days_range]
-            y_waiting = [waiting_count.get(d, 0) for d in days_range]
-
-            # Traccia: Pazienti Aggiunti
-            fig.add_trace(
-                go.Scatter(
-                    x=days_range,
-                    y=y_added,
-                    mode="lines+markers",
-                    name="Pazienti Aggiunti",
-                    line={"color": "blue"},
-                    hovertemplate="%{y}<extra>Aggiunti</extra>",
-                )
-            )
-
-            # Traccia: Pazienti Operati
-            fig.add_trace(
-                go.Scatter(
-                    x=days_range,
-                    y=y_resolved,
-                    mode="lines+markers",
-                    name="Pazienti Operati",
-                    line={"color": "green"},
-                    hovertemplate="%{y}<extra>Operati</extra>",
-                )
-            )
-
-            # Traccia: Pazienti in Attesa (Cumulativo)
-            fig.add_trace(
-                go.Scatter(
-                    x=days_range,
-                    y=y_waiting,
-                    mode="lines+markers",
-                    name="Pazienti in Attesa",
-                    line={"color": "red"},
-                    hovertemplate="%{y}<extra>In attesa</extra>",
-                )
-            )
-
-            # Linea inizio schedulazione
-            if START_WEEK_SCHEDULING >= 1:
-                start_day = START_WEEK_SCHEDULING * WEEK_LENGTH_DAYS
-                fig.add_vline(
-                    x=start_day,
-                    line={"color": "orange", "width": 2, "dash": "dash"},
-                    annotation_text="Inizio Schedulazione",
-                    annotation_position="top right",
-                    annotation_font_color="orange",
-                )
-
-            metric_label = (
-                "Dati REALI (ROT)" if use_rot_as_primary else "Dati PIANIFICATI (EOT)"
-            )
-            fig.update_layout(
-                title=f"{title} - {metric_label}",
-                xaxis_title="Giorno",
-                yaxis_title="Numero Pazienti",
-                template="plotly_white",
-                hovermode="x unified",
-            )
-
-            self._show_figure(fig, name=f"WaitingListLineGraph_withEOTplanned_{op}")
 
     def PrintWaitingListLineGraph(
         self,
@@ -2061,18 +1275,12 @@ class Graphs:
             self.log_graph_data = log_graph_data
 
         base_title = "Distribuzione pazienti - "
+        self.PrintDailyBoxGraph(data, base_title, use_rot_as_primary=use_rot_as_primary)
         trend_title = "Carico operatorio - "
+        self.PrintTrendLineGraph(data, trend_title, use_rot_as_primary=use_rot_as_primary)
         wait_title = "Lista attesa - "
-        if use_rot_as_primary:
-            self.PrintDailyBoxGraph(data, base_title, use_rot_as_primary=use_rot_as_primary)
-            self.PrintTrendLineGraph(data, trend_title, use_rot_as_primary=use_rot_as_primary)
-            self.PrintWaitingListLineGraph(data, wait_title, use_rot_as_primary=use_rot_as_primary)
-            self.PrintWaitingTimeBoxPlotGraph(data, "Tempi attesa - ", use_rot_as_primary=use_rot_as_primary)
-        else:
-            self.PrintDailyBoxGraph_withEOTplanned(data, base_title, plan_eot=plan_eot, use_rot_as_primary=use_rot_as_primary)
-            self.PrintTrendLineGraph_withEOTplanned(data, trend_title, plan_eot=plan_eot, use_rot_as_primary=use_rot_as_primary)
-            self.PrintWaitingListLineGraph_withEOTplanned(data, wait_title, plan_eot=plan_eot, use_rot_as_primary=use_rot_as_primary)
-            self.PrintWaitingTimeBoxPlotGraph_withEOTplanned(data,"Tempi attesa - ",plan_eot=plan_eot,use_rot_as_primary=use_rot_as_primary,)
+        self.PrintWaitingListLineGraph(data, wait_title, use_rot_as_primary=use_rot_as_primary)
+        self.PrintWaitingTimeBoxPlotGraph(data, "Tempi attesa - ", use_rot_as_primary=use_rot_as_primary)
 
 
 if __name__ == "__main__":

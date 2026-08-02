@@ -96,7 +96,8 @@ def write_reports(
     # project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     # records_dir = os.path.join(project_root, "Records")
 
-    records_dir = os.path.join(project_root, "Records")
+    #records_dir = os.path.join(project_root, "Records")
+    records_dir = project_root
     seed_dir = os.path.join(records_dir, "seed-" + str(seed))
     os.makedirs(seed_dir, exist_ok=True)
 
