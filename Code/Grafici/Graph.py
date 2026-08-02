@@ -10,10 +10,11 @@ Gestisce la visualizzazione dei dati di schedulazione operatoria attraverso:
 
 from __future__ import annotations
 from collections import defaultdict
+import copy
 import json
+import logging
 import os
 import sys
-import copy
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -25,8 +26,15 @@ if os.path.basename(__file__) != "main.py":
     )
 
 from CommonClass.PatientListForSpecialties import PatientListForSpecialties
+from CommonClass.Patient import Patient
 from settings import Settings
 
+START_WEEK_SCHEDULING = Settings.start_week_scheduling
+WEEK_LENGTH_DAYS = Settings.week_length_days
+DAILY_OPERATION_LIMIT = Settings.daily_operation_limit 
+WEEKLY_EXTRA_TIME_POOL = Settings.weekly_extra_time_pool
+
+logger = logging.getLogger(__name__)
 
 def CreateScheduleWithReplanned(schedule: dict, plan_eot_input: dict | None) -> dict:
     """Crea una nuova istanza dello schedule integrando i dati di pianificazione EOT.
@@ -39,7 +47,6 @@ def CreateScheduleWithReplanned(schedule: dict, plan_eot_input: dict | None) -> 
     if not plan_eot_input:
         return cloned_schedule
 
-    # 1. AUTO-FIX: Estrazione della sezione corretta se passato l'intero file JSON
     if isinstance(plan_eot_input, dict) and "plan_eot" in plan_eot_input:
         plan_eot = plan_eot_input["plan_eot"]
     else:
@@ -144,12 +151,13 @@ def CreateScheduleWithReplanned(schedule: dict, plan_eot_input: dict | None) -> 
 
     return cloned_schedule
 
-
 class Graphs:
     """Gestore della creazione di grafici Plotly per l'analisi della schedulazione operatoria."""
 
     folderPath: str
     ShowFigures: bool = False
+    log_graph_data: bool = False
+    graph_data_log_path: str | None = None
 
     def __init__(
         self, folderPath: str = os.path.dirname(os.path.abspath(__file__)) + "/Images"
@@ -162,14 +170,119 @@ class Graphs:
         if not os.path.exists(folderPath):
             os.makedirs(folderPath)
         self.folderPath = folderPath
+        self.graph_data_log_path = os.path.join(self.folderPath, "graph_data_log.jsonl")
 
-    def ShowFigure(self, fig: go.Figure, name: str = "grafico") -> None:
+    #region: Funzioni interne
+    @staticmethod
+    def _get_patient_value(patient: Patient | dict, key: str, default: float | int | str | None = None) -> float | int | str | None:
+        """Restituisce un valore da un paziente sia esso dict o oggetto."""
+        if isinstance(patient, dict):
+            return patient.get(key, default)
+        return getattr(patient, key, default)
+
+    @staticmethod
+    def _normalize_plan_entries(plan_list: list[dict] | None) -> list[dict] | None:
+        """Normalizza i record pianificati rimuovendo duplicati per id."""
+        if plan_list is None:
+            return None
+        if not plan_list:
+            return []
+
+        latest_plan_by_id: dict[str, dict] = {}
+        for pp in plan_list:
+            if not isinstance(pp, dict):
+                continue
+            pid = pp.get("id", None)
+            if pid is None:
+                continue
+            latest_plan_by_id[str(pid)] = pp
+
+        return sorted(
+            latest_plan_by_id.values(),
+            key=lambda pp: (
+                pp.get("opDay", 0),
+                pp.get("workstation", 0),
+                pp.get("id", 0),
+            ),
+        )
+
+    @staticmethod
+    def _build_week_ranges(max_day: int, week_length_days: int) -> list[tuple[int, int, int]]:
+        """Costruisce gli intervalli settimana in formato (week_num, start_day, end_day)."""
+        if max_day <= 0:
+            return [(0, 0, week_length_days - 1)]
+
+        last_week = max_day // week_length_days
+        return [(
+            week_num, 
+            week_num * week_length_days, 
+            ((week_num + 1) * week_length_days) - 1
+            ) for week_num in range(last_week + 1)
+        ]
+
+    def _log_dataset_snapshot(
+        self,
+        context: str,
+        patients: list[Patient | dict] | None = None,
+        plan_entries: list[dict] | None = None,
+        extra: dict[str, str | int | float | bool] | None = None,
+    ) -> None:
+        """Registra un snapshot dei dati usati per generare un grafico."""
+        if not self.log_graph_data:
+            return
+
+        payload: dict[str, Any] = {
+            "context": context,
+            "patients_count": len(patients or []),
+            "plan_entries_count": len(plan_entries or []),
+        }
+
+        if patients is not None:
+            payload["patients"] = [
+                {
+                    "id": self._get_patient_value(p, "id"),
+                    "day": self._get_patient_value(p, "day"),
+                    "opDay": self._get_patient_value(p, "opDay", -1),
+                    "workstation": self._get_patient_value(p, "workstation", -1),
+                    "eot": self._get_patient_value(p, "eot"),
+                    "rot": self._get_patient_value(p, "rot"),
+                    "mtb": self._get_patient_value(p, "mtb"),
+                }
+                for p in patients
+            ]
+
+        if plan_entries is not None:
+            payload["plan_entries"] = [
+                {
+                    "id": entry.get("id"),
+                    "day": entry.get("day"),
+                    "opDay": entry.get("opDay", -1),
+                    "workstation": entry.get("workstation", -1),
+                    "eot": entry.get("eot"),
+                    "rot": entry.get("rot"),
+                    "mtb": entry.get("mtb"),
+                }
+                for entry in plan_entries
+            ]
+
+        if extra:
+            payload["extra"] = extra
+
+        log_line = json.dumps(payload, ensure_ascii=False, default=str)
+        logger.info("Graph data snapshot: %s", log_line)
+
+        if self.graph_data_log_path:
+            with open(self.graph_data_log_path, "a", encoding="utf-8") as handle:
+                handle.write(log_line + "\n")
+
+    def _show_figure(self, fig: go.Figure, name: str = "grafico") -> None:
         """Salva il grafico in HTML e opzionalmente lo visualizza.
-
+        
         Args:
             fig: Figura Plotly da salvare
             name: Nome del file HTML (senza estensione)
         """
+        
         fig.write_html(f"{self.folderPath}/{name}.html")
         if self.ShowFigures:
             fig.show()
@@ -226,15 +339,18 @@ class Graphs:
         """
         daily_patients = [p for p in patients if p.opDay == day]
         time_used = sum(getattr(p, metric, 0) for p in daily_patients)
-        return Settings.daily_operation_limit - time_used
+        return DAILY_OPERATION_LIMIT - time_used
 
+    #endregion: Funzioni interne
+    #region: Funzioni dei grafici 
     def BoxPlotUnusedTime(self, weeks: PatientListForSpecialties, title: str) -> None:
         """Crea un box plot del tempo inutilizzato per settimana e per sala operatoria.
-
+        
         Args:
             weeks: PatientListForSpecialties con i dati dei pazienti
             title: Titolo del grafico
         """
+        
         data = []
 
         for op, patients in weeks.items():
@@ -243,7 +359,7 @@ class Graphs:
 
             # Calcolo ultimo giorno e numero settimane
             last_week = (
-                max((p.opDay for p in patients), default=0) // Settings.week_length_days
+                max((p.opDay for p in patients), default=0) // WEEK_LENGTH_DAYS
             )
 
             for weekNum in range(last_week + 1):
@@ -251,8 +367,8 @@ class Graphs:
                 unused_times = [
                     self._get_free_time_per_day(patients, day)
                     for day in range(
-                        weekNum * Settings.week_length_days,
-                        (weekNum + 1) * Settings.week_length_days,
+                        weekNum * WEEK_LENGTH_DAYS,
+                        (weekNum + 1) * WEEK_LENGTH_DAYS,
                     )
                 ]
 
@@ -272,7 +388,7 @@ class Graphs:
                 yaxis_title="Tempo inutilizzato (minuti)",
                 xaxis_title="Settimane",
             )
-            self.ShowFigure(fig, name="BoxPlotUnusedTime")
+            self._show_figure(fig, name="BoxPlotUnusedTime")
 
     """
     # # Esempio di calcolo delle statistiche per capire cosa rappresenta il box plot
@@ -306,15 +422,19 @@ class Graphs:
         plan_eot: dict | None = None,
         use_rot_as_primary: bool = False,
     ) -> None:
+        
         # 1. Sovrascrive/integra operations dando priorità a plan_eot
         operations_updated = CreateScheduleWithReplanned(operations, plan_eot)
-
         for op, patients_real in operations_updated.items():
             if not patients_real:
                 continue
-
             title = basetitle + op
-
+            self._log_dataset_snapshot(
+                context=f"waiting_time_boxplot_with_plan:{op}",
+                patients=patients_real,
+                plan_entries=plan_eot.get(op, []) if plan_eot is not None else None,
+                extra={"use_rot_as_primary": use_rot_as_primary},
+            )
             # 2. Selezione ed estrazione uniforme
             rows = []
             seen_ids = set()
@@ -323,7 +443,6 @@ class Graphs:
                 p_day = p.get("day", 0) if isinstance(p, dict) else getattr(p, "day", 0)
                 p_mtb = p.get("mtb", None) if isinstance(p, dict) else getattr(p, "mtb", None)
                 p_opDay = p.get("opDay", -1) if isinstance(p, dict) else getattr(p, "opDay", -1)
-
                 if p_id is not None and p_id not in seen_ids:
                     seen_ids.add(p_id)
                     rows.append(
@@ -334,34 +453,27 @@ class Graphs:
                             "Data operazione": p_opDay,
                         }
                     )
-
             df = pd.DataFrame(rows)
             df = df[df["Data operazione"] != -1].dropna(subset=["Data operazione"])
-
             if df.empty:
                 continue
-
             df["Tempo_attesa"] = df["Data operazione"] - df["Data inserimento"]
-            last_week = int(df["Data operazione"].max() // Settings.week_length_days)
-
+            max_day = df["Data operazione"].max()
             data = []
-            for weekNum in range(last_week + 1):
-                week_start = (weekNum - 1) * Settings.week_length_days + 1
-                week_end = weekNum * Settings.week_length_days
-
+            for week_num, week_start, week_end in self._build_week_ranges(
+                max_day, WEEK_LENGTH_DAYS
+            ):
                 waiting_times = df[df["Data operazione"].between(week_start, week_end)][
                     "Tempo_attesa"
                 ]
-
                 data.append(
                     go.Box(
                         y=waiting_times,
-                        name=f"Sett {weekNum}",
+                        name=f"Sett {week_num}",
                         boxmean="sd",
                         marker_color="indianred",
                     )
                 )
-
             fig = go.Figure(data)
             metric_label = (
                 "Dati REALI (ROT)" if use_rot_as_primary else "Dati PIANIFICATI (EOT)"
@@ -372,8 +484,7 @@ class Graphs:
                 xaxis_title="Settimane",
                 template="plotly_white",
             )
-
-            self.ShowFigure(fig, name=f"WaitingTimeBoxPlot_withEOTplanned_{op}")
+            self._show_figure(fig, name=f"WaitingTimeBoxPlot_withEOTplanned_{op}")
 
     def PrintWaitingTimeBoxPlotGraph(
         self,
@@ -382,17 +493,23 @@ class Graphs:
         use_rot_as_primary: bool = False,
     ) -> None:
         """Crea box plot dei tempi di attesa per settimana e specialità.
-
+        
         Args:
             operations: PatientListForSpecialties con i dati
             basetitle: Titolo base del grafico
             use_rot_as_primary: Non utilizzato in questo metodo (mantenuto per compatibilità)
         """
+
         for op, patients in operations.items():
             if not patients:
                 continue
 
             title = basetitle + op
+            self._log_dataset_snapshot(
+                context=f"waiting_time_boxplot:{op}",
+                patients=patients,
+                extra={"use_rot_as_primary": use_rot_as_primary},
+            )
             data = []
 
             # Costruisci DataFrame con dati di pazienti
@@ -410,14 +527,11 @@ class Graphs:
             df["Tempo_attesa"] = df["Data operazione"] - df["Data inserimento"]
 
             # Calcola numero di settimane
-            last_week = (
-                max((p.opDay for p in patients), default=0) // Settings.week_length_days
-            )
+            max_day = max((p.opDay for p in patients), default=0)
 
-            for weekNum in range(last_week + 1):
-                # Filtra tempi di attesa per settimana
-                week_start = (weekNum - 1) * Settings.week_length_days + 1
-                week_end = weekNum * Settings.week_length_days
+            for week_num, week_start, week_end in self._build_week_ranges(
+                max_day, WEEK_LENGTH_DAYS
+            ):
                 waiting_times = df[df["Data operazione"].between(week_start, week_end)][
                     "Tempo_attesa"
                 ]
@@ -425,7 +539,7 @@ class Graphs:
                 data.append(
                     go.Box(
                         y=waiting_times,
-                        name=f"Sett {weekNum}",
+                        name=f"Sett {week_num}",
                         boxmean="sd",
                         marker_color="indianred",
                     )
@@ -437,7 +551,7 @@ class Graphs:
                 yaxis_title="Tempo di attesa (giorni)",
                 xaxis_title="Settimane",
             )
-            self.ShowFigure(fig, name=f"WaitingTimeBoxPlot_{op}")
+            self._show_figure(fig, name=f"WaitingTimeBoxPlot_{op}")
 
     def PrintDailyBoxGraph_withEOTplanned(
         self,
@@ -446,7 +560,8 @@ class Graphs:
         plan_eot: dict | None = None,
         use_rot_as_primary: bool = False,
     ):
-        limite_massimo = Settings.daily_operation_limit
+        
+        limite_massimo = DAILY_OPERATION_LIMIT
 
         # Aggiorna la struttura operation usando la priorità di plan_eot
         operation_updated = CreateScheduleWithReplanned(operation, plan_eot)
@@ -454,28 +569,19 @@ class Graphs:
         for op, patients_real in operation_updated.items():
             if not patients_real:
                 continue
-            xline = Settings.week_length_days * Settings.workstations_config[op]
+            xline = WEEK_LENGTH_DAYS * Settings.workstations_config[op]
             title = baseTitle + op
+            self._log_dataset_snapshot(
+                context=f"daily_boxplot_with_plan:{op}",
+                patients=patients_real,
+                plan_entries=plan_eot.get(op, []) if plan_eot is not None else None,
+                extra={"use_rot_as_primary": use_rot_as_primary},
+            )
 
             # --- Pianificato EOT (lista di dict)  ---
-            plan_list = plan_eot.get(op, []) if plan_eot is not None else None
-            if plan_list is not None:
-                latest_plan_by_id = {}
-                for pp in plan_list:
-                    if not isinstance(pp, dict):
-                        continue
-                    pid = pp.get("id", None)
-                    if pid is None:
-                        continue
-                    latest_plan_by_id[pid] = pp
-                plan_list = sorted(
-                    latest_plan_by_id.values(),
-                    key=lambda pp: (
-                        pp.get("opDay", 0),
-                        pp.get("workstation", 0),
-                        pp.get("id", 0),
-                    ),
-                )
+            plan_list = self._normalize_plan_entries(
+                plan_eot.get(op, []) if plan_eot is not None else None
+            )
 
             fig = go.Figure()
 
@@ -501,7 +607,7 @@ class Graphs:
                 else 0
             )
             last_day = max(last_day_real, last_day_plan)
-            num_weeks = (last_day // Settings.week_length_days) + 1
+            num_weeks = (last_day // WEEK_LENGTH_DAYS) + 1
 
             # linea limite
             shape_limite_massimo = [
@@ -521,11 +627,12 @@ class Graphs:
             # --- costruisco TRACES per settimana (visivo identico: EOT front + ROT back) ---
             for weekNum in range(num_weeks):
                 shapes = []
-                extra_time_pool = Settings.weekly_extra_time_pool
+                extra_time_pool = WEEKLY_EXTRA_TIME_POOL
+                week_start_day = weekNum * WEEK_LENGTH_DAYS
 
                 for day in range(
-                    weekNum * Settings.week_length_days,
-                    (weekNum + 1) * Settings.week_length_days,
+                    week_start_day,
+                    week_start_day + WEEK_LENGTH_DAYS,
                 ):
                     for room_id in range(Settings.workstations_config[op]):
 
@@ -569,7 +676,8 @@ class Graphs:
                         )
 
                         # x identico: tot EOT e tot ROT nella label
-                        xtext = f"W:{weekNum}|D:{day}|OR:{room_id+1}|<br>ToTMin:{mins}|<br>RoTMin:{minsRot}"
+                        week_label = START_WEEK_SCHEDULING + weekNum
+                        xtext = f"W:{week_label}|D:{day}|OR:{room_id+1}|<br>ToTMin:{mins}|<br>RoTMin:{minsRot}"
 
                         # --- FRONT: Metrica primaria (EOT se not use_rot_as_primary, ROT altrimenti) ---
                         if use_rot_as_primary:
@@ -593,7 +701,7 @@ class Graphs:
                                         textposition="inside",
                                         offsetgroup="front",
                                         visible=(
-                                            weekNum == Settings.start_week_scheduling
+                                            weekNum == 0
                                         ),
                                     )
                                 )
@@ -623,7 +731,7 @@ class Graphs:
                                         textposition="inside",
                                         offsetgroup="front",
                                         visible=(
-                                            weekNum == Settings.start_week_scheduling
+                                            weekNum == 0
                                         ),
                                     )
                                 )
@@ -648,7 +756,7 @@ class Graphs:
                                         textposition="inside",
                                         offsetgroup="front",
                                         visible=(
-                                            weekNum == Settings.start_week_scheduling
+                                            weekNum == 0
                                         ),
                                     )
                                 )
@@ -686,7 +794,7 @@ class Graphs:
                                             offset=-0.2,
                                             visible=(
                                                 weekNum
-                                                == Settings.start_week_scheduling
+                                                == 0
                                             ),
                                         )
                                     )
@@ -714,7 +822,7 @@ class Graphs:
                                             offset=-0.2,
                                             visible=(
                                                 weekNum
-                                                == Settings.start_week_scheduling
+                                                == 0
                                             ),
                                         )
                                     )
@@ -741,14 +849,14 @@ class Graphs:
                                         offsetgroup="back",
                                         offset=-0.2,
                                         visible=(
-                                            weekNum == Settings.start_week_scheduling
+                                            weekNum == 0
                                         ),
                                     )
                                 )
                                 trace_idx_by_week[weekNum].append(len(fig.data) - 1)
 
                     # linea extra giornaliero (come prima, basata sui ROT reali)
-                    dayNumInWeek = day % Settings.week_length_days
+                    dayNumInWeek = day - week_start_day
                     x0 = dayNumInWeek * Settings.workstations_config[op] - 0.5
                     x1 = (dayNumInWeek + 1) * Settings.workstations_config[op] - 0.5
 
@@ -806,7 +914,7 @@ class Graphs:
             )
             fig.add_annotation(
                 x=0.5,
-                y=Settings.weekly_extra_time_pool + limite_massimo,
+                y=WEEKLY_EXTRA_TIME_POOL + limite_massimo,
                 text="minuti massimi di straordinario disponibili",
                 showarrow=False,
                 yshift=10,
@@ -845,7 +953,7 @@ class Graphs:
                 xaxis_title="Giorni",
             )
 
-            self.ShowFigure(fig, name=f"DailyBoxGraph_withTraslatedPatients_{op}")
+            self._show_figure(fig, name=f"DailyBoxGraph_withTraslatedPatients_{op}")
 
     def PrintDailyBoxGraph(
         self,
@@ -853,14 +961,20 @@ class Graphs:
         baseTitle: str,
         use_rot_as_primary: bool = False,
     ):
-        limite_massimo = Settings.daily_operation_limit
+        
+        limite_massimo = DAILY_OPERATION_LIMIT
 
         # Ciclo principale su ogni specialità
         for op, patients_real in operation.items():
             if not patients_real:
                 continue
-            xline = Settings.week_length_days * Settings.workstations_config[op]
+            xline = WEEK_LENGTH_DAYS * Settings.workstations_config[op]
             title = baseTitle + op
+            self._log_dataset_snapshot(
+                context=f"daily_boxplot:{op}",
+                patients=patients_real,
+                extra={"use_rot_as_primary": use_rot_as_primary},
+            )
 
             fig = go.Figure()
 
@@ -874,7 +988,7 @@ class Graphs:
 
             # Calcolo del range delle settimane basato solo sui giorni reali
             last_day = max((p.opDay for p in patients_real), default=0)
-            num_weeks = (last_day // Settings.week_length_days) + 1
+            num_weeks = (last_day // WEEK_LENGTH_DAYS) + 1
 
             # Linea del limite massimo giornaliero
             shape_limite_massimo = [
@@ -894,11 +1008,12 @@ class Graphs:
             # --- Costruzione dei TRACES per settimana ---
             for weekNum in range(num_weeks):
                 shapes = []
-                extra_time_pool = Settings.weekly_extra_time_pool
+                extra_time_pool = WEEKLY_EXTRA_TIME_POOL
+                week_start_day = weekNum * WEEK_LENGTH_DAYS
 
                 for day in range(
-                    weekNum * Settings.week_length_days,
-                    (weekNum + 1) * Settings.week_length_days,
+                    week_start_day,
+                    week_start_day + WEEK_LENGTH_DAYS,
                 ):
                     for room_id in range(Settings.workstations_config[op]):
 
@@ -914,7 +1029,8 @@ class Graphs:
                         minsEot = round(sum(p.eot for p in real_day_room), 2)
 
                         # Etichetta dell'asse X con i totali di giornata per quella sala
-                        xtext = f"W:{weekNum}|D:{day}|OR:{room_id+1}|<br>ToTMin:{minsEot}|<br>RoTMin:{minsRot}"
+                        week_label = START_WEEK_SCHEDULING + weekNum
+                        xtext = f"W:{week_label}|D:{day}|OR:{room_id+1}|<br>ToTMin:{minsEot}|<br>RoTMin:{minsRot}"
 
                         # --- FRONT: Metrica primaria (piena) ---
                         for p in real_day_room:
@@ -941,7 +1057,7 @@ class Graphs:
                                     cliponaxis=True,
                                     textposition="inside",
                                     offsetgroup="front",
-                                    visible=(weekNum == Settings.start_week_scheduling),
+                                    visible=(weekNum == 0),
                                 )
                             )
                             trace_idx_by_week[weekNum].append(len(fig.data) - 1)
@@ -972,13 +1088,13 @@ class Graphs:
                                     textposition="inside",
                                     offsetgroup="back",
                                     offset=-0.2,
-                                    visible=(weekNum == Settings.start_week_scheduling),
+                                    visible=(weekNum == 0),
                                 )
                             )
                             trace_idx_by_week[weekNum].append(len(fig.data) - 1)
 
                     # Linea extra giornaliero (basata sui ROT reali)
-                    dayNumInWeek = day % Settings.week_length_days
+                    dayNumInWeek = day - week_start_day
                     x0 = dayNumInWeek * Settings.workstations_config[op] - 0.5
                     x1 = (dayNumInWeek + 1) * Settings.workstations_config[op] - 0.5
 
@@ -1037,7 +1153,7 @@ class Graphs:
             )
             fig.add_annotation(
                 x=0.5,
-                y=Settings.weekly_extra_time_pool + limite_massimo,
+                y=WEEKLY_EXTRA_TIME_POOL + limite_massimo,
                 text="minuti massimi di straordinario disponibili",
                 showarrow=False,
                 yshift=10,
@@ -1076,7 +1192,7 @@ class Graphs:
                 xaxis_title="Giorni",
             )
 
-            self.ShowFigure(fig, name=f"DailyBoxGraph_{op}")
+            self._show_figure(fig, name=f"DailyBoxGraph_{op}")
 
     def PrintTrendLineGraph_withEOTplanned(
         self,
@@ -1086,32 +1202,24 @@ class Graphs:
         use_rot_as_primary: bool = False,
     ) -> None:
         """Crea grafico di tendenza del carico operatorio con doppio asse Y senza duplicati di ID paziente."""
+        use_rot_as_primary = True
         operation_updated = CreateScheduleWithReplanned(operation, plan_eot)
 
         for op, patients_real in operation_updated.items():
             if not patients_real:
                 continue
             title = baseTitle + op
+            self._log_dataset_snapshot(
+                context=f"trend_line_with_plan:{op}",
+                patients=patients_real,
+                plan_entries=plan_eot.get(op, []) if plan_eot is not None else None,
+                extra={"use_rot_as_primary": use_rot_as_primary},
+            )
 
             # --- 1. Pulizia globale del pianificato ---
-            plan_list = plan_eot.get(op, []) if plan_eot is not None else None
-            if plan_list is not None:
-                latest_plan_by_id = {}
-                for pp in plan_list:
-                    if not isinstance(pp, dict):
-                        continue
-                    pid = pp.get("id", None)
-                    if pid is None:
-                        continue
-                    latest_plan_by_id[pid] = pp
-                plan_list = sorted(
-                    latest_plan_by_id.values(),
-                    key=lambda pp: (
-                        pp.get("opDay", 0),
-                        pp.get("workstation", 0),
-                        pp.get("id", 0),
-                    ),
-                )
+            plan_list = self._normalize_plan_entries(
+                plan_eot.get(op, []) if plan_eot is not None else None
+            )
 
             last_day_real = max(p.opDay for p in patients_real) if patients_real else 0
             last_day_plan = (
@@ -1121,30 +1229,28 @@ class Graphs:
             )
             last_day = max(last_day_real, last_day_plan)
 
-            num_weeks = (last_day // Settings.week_length_days) + 1
-            total_days = num_weeks * Settings.week_length_days
-            days_title = [f"Day:{day}" for day in range(total_days)]
+            num_weeks = (last_day // WEEK_LENGTH_DAYS) + 1
+            total_days = num_weeks * WEEK_LENGTH_DAYS
+            start_day = 0
+            days_title = [
+                f"Day:{day_offset}" for day_offset in range(total_days)
+                ]
 
             start_index = 0
-            if Settings.start_week_scheduling >= 1:
-                start_day = (
-                    f"Day:{Settings.start_week_scheduling * Settings.week_length_days}"
-                )
-                if start_day in days_title:
-                    start_index = days_title.index(start_day)
 
             room_ids = range(Settings.workstations_config[op])
             room_free_time = {room_id + 1: [] for room_id in room_ids}
             room_patient = {room_id + 1: [] for room_id in room_ids}
 
-            for d in range(total_days):
+            for day_offset in range(total_days):
+                day = start_day + day_offset
                 for room_id in room_ids:
 
                     # --- Filtro Reali Univoci per Giorno/Sala ---
                     raw_real = [
                         p
                         for p in patients_real
-                        if p.workstation == room_id + 1 and p.opDay == d
+                        if p.workstation == room_id + 1 and p.opDay == day
                     ]
                     daily_patients_real = []
                     seen_real = set()
@@ -1159,7 +1265,7 @@ class Graphs:
                             pp
                             for pp in plan_list
                             if pp.get("workstation", None) == room_id + 1
-                            and pp.get("opDay", None) == d
+                            and pp.get("opDay", None) == day
                         ]
                         daily_patients_plan = []
                         seen_plan = set()
@@ -1193,7 +1299,7 @@ class Graphs:
                         else:
                             time_metric = sum(p.eot for p in daily_patients_real)
 
-                    free_time = Settings.daily_operation_limit - time_metric
+                    free_time = DAILY_OPERATION_LIMIT - time_metric
                     room_free_time[room_id + 1].append(free_time)
                     room_patient[room_id + 1].append(patient_count)
 
@@ -1223,7 +1329,7 @@ class Graphs:
                     secondary_y=False,
                 )
 
-            if Settings.start_week_scheduling >= 1:
+            if START_WEEK_SCHEDULING >= 1:
                 fig.add_vline(
                     x=start_index - 0.5,
                     line={"color": "orange", "width": 2, "dash": "dash"},
@@ -1246,7 +1352,7 @@ class Graphs:
             fig.update_yaxes(title_text="Tempo libero (minuti)", secondary_y=False)
             fig.update_yaxes(title_text="Numero pazienti", secondary_y=True)
 
-            self.ShowFigure(fig, name=f"TrendLineGraph_withEOTplanned_{op}")
+            self._show_figure(fig, name=f"TrendLineGraph_withEOTplanned_{op}")
 
     def PrintTrendLineGraph(
         self,
@@ -1255,56 +1361,60 @@ class Graphs:
         use_rot_as_primary: bool = False,
     ) -> None:
         """Crea grafico di tendenza del carico operatorio con doppio asse Y.
-
+        
         Mostra linee di tempo libero e barre di pazienti per sala.
-
+        
         Args:
             operation: PatientListForSpecialties con i dati
             baseTitle: Titolo base del grafico
             use_rot_as_primary: Se True, usa ROT per calcolare tempo libero
         """
+        use_rot_as_primary = True
+
+
         for op, patients in operation.items():
             if not patients:
                 continue
 
             title = baseTitle + op
+            self._log_dataset_snapshot(
+                context=f"trend_line:{op}",
+                patients=patients,
+                extra={"use_rot_as_primary": use_rot_as_primary},
+            )
             patients = sorted(patients, key=lambda p: (p.opDay, p.workstation))
 
             # Genera etichette giorni
             last_day = max(p.opDay for p in patients)
-            num_weeks = (last_day // Settings.week_length_days) + 1
-            total_days = num_weeks * Settings.week_length_days
+            num_weeks = (last_day // WEEK_LENGTH_DAYS) + 1
+            total_days = num_weeks * WEEK_LENGTH_DAYS
+            start_day = 0
             days_title = [
-                f"Day:{day}" for day in range(num_weeks * Settings.week_length_days)
+                f"Day:{day_offset}" for day_offset in range(total_days)
             ]
 
             # Calcola indice giorno inizio schedulazione
             start_index = 0
-            if Settings.start_week_scheduling >= 1:
-                start_day = (
-                    f"Day:{Settings.start_week_scheduling * Settings.week_length_days}"
-                )
-                if start_day in days_title:
-                    start_index = days_title.index(start_day)
 
             # Aggrega tempo libero e numero pazienti per sala e giorno
             room_ids = range(Settings.workstations_config[op])
             room_free_time = {room_id + 1: [] for room_id in room_ids}
             room_patient = {room_id + 1: [] for room_id in room_ids}
 
-            for d in range(total_days):
+            for day_offset in range(total_days):
+                day = start_day + day_offset
                 for room_id in room_ids:
                     daily_patients = [
                         p
                         for p in patients
-                        if p.workstation == room_id + 1 and p.opDay == d
+                        if p.workstation == room_id + 1 and p.opDay == day
                     ]
                     time_metric = (
                         sum(p.rot for p in daily_patients)
                         if use_rot_as_primary
                         else sum(p.eot for p in daily_patients)
                     )
-                    free_time = Settings.daily_operation_limit - time_metric
+                    free_time = DAILY_OPERATION_LIMIT - time_metric
                     room_free_time[room_id + 1].append(free_time)
                     room_patient[room_id + 1].append(len(daily_patients))
 
@@ -1338,7 +1448,7 @@ class Graphs:
                 )
 
             # Linea inizio schedulazione
-            if Settings.start_week_scheduling >= 1:
+            if START_WEEK_SCHEDULING >= 1:
                 fig.add_vline(
                     x=start_index - 0.5,
                     line={"color": "orange", "width": 2, "dash": "dash"},
@@ -1356,7 +1466,7 @@ class Graphs:
             fig.update_yaxes(title_text="Tempo libero (minuti)", secondary_y=False)
             fig.update_yaxes(title_text="Numero pazienti", secondary_y=True)
 
-            self.ShowFigure(fig, name=f"TrendLineGraph_{op}")
+            self._show_figure(fig, name=f"TrendLineGraph_{op}")
 
     def PrintWaitingListLineGraph_withEOTplanned(
         self,
@@ -1366,41 +1476,33 @@ class Graphs:
         use_rot_as_primary: bool = False,
     ) -> None:
         """Crea grafico dell'evoluzione della lista d'attesa nel tempo.
-
+        
         Mostra: pazienti aggiunti, pazienti operati, e pazienti ancora in attesa.
-
+        
         Args:
             operations: PatientListForSpecialties con i dati reali
             baseTitle: Titolo base del grafico
             plan_eot: Dizionario contenente la programmazione pianificata EOT
             use_rot_as_primary: Se True usa i dati reali, altrimenti usa il pianificato (EOT)
         """
+        
         operations_updated = CreateScheduleWithReplanned(operations, plan_eot)
 
         for op, patients_real in operations_updated.items():
             if not patients_real:
                 continue
             title = baseTitle + op
+            self._log_dataset_snapshot(
+                context=f"waiting_list_line_with_plan:{op}",
+                patients=patients_real,
+                plan_entries=plan_eot.get(op, []) if plan_eot is not None else None,
+                extra={"use_rot_as_primary": use_rot_as_primary},
+            )
 
             # --- 1. Estrazione e pulizia dati PIANIFICATI (EOT) ---
-            plan_list = plan_eot.get(op, []) if plan_eot is not None else None
-            if plan_list is not None:
-                latest_plan_by_id = {}
-                for pp in plan_list:
-                    if not isinstance(pp, dict):
-                        continue
-                    pid = pp.get("id", None)
-                    if pid is None:
-                        continue
-                    latest_plan_by_id[pid] = pp
-                plan_list = sorted(
-                    latest_plan_by_id.values(),
-                    key=lambda pp: (
-                        pp.get("opDay", 0),
-                        pp.get("workstation", 0),
-                        pp.get("id", 0),
-                    ),
-                )
+            plan_list = self._normalize_plan_entries(
+                plan_eot.get(op, []) if plan_eot is not None else None
+            )
 
             # --- 2. Raggruppamento e Deduplicazione con Set (ID unici per giorno) ---
             new_patient_list = defaultdict(set)
@@ -1409,9 +1511,14 @@ class Graphs:
             # Selezione del dataset in base alla metrica primaria scelta
             if use_rot_as_primary or plan_list is None:
                 for p in patients_real:
-                    new_patient_list[p.day].add(p.id)
-                    if p.opDay != -1 and p.opDay is not None:
-                        resolved_list[p.opDay].add(p.id)
+                    p_id = self._get_patient_value(p, "id")
+                    p_day = self._get_patient_value(p, "day")
+                    p_op_day = self._get_patient_value(p, "opDay", -1)
+                    if p_id is not None:
+                        if p_day is not None:
+                            new_patient_list[p_day].add(p_id)
+                        if p_op_day != -1 and p_op_day is not None:
+                            resolved_list[p_op_day].add(p_id)
             else:
                 for pp in plan_list:
                     pid = pp.get("id")
@@ -1448,11 +1555,16 @@ class Graphs:
             # --- 4. Costruzione del Grafico Plotly ---
             fig = go.Figure()
 
+            days_range = list(range(max_day + 1))
+            y_added = [new_patient_count.get(d, 0) for d in days_range]
+            y_resolved = [resolved_count.get(d, 0) for d in days_range]
+            y_waiting = [waiting_count.get(d, 0) for d in days_range]
+
             # Traccia: Pazienti Aggiunti
             fig.add_trace(
                 go.Scatter(
-                    x=list(new_patient_count.keys()),
-                    y=list(new_patient_count.values()),
+                    x=days_range,
+                    y=y_added,
                     mode="lines+markers",
                     name="Pazienti Aggiunti",
                     line={"color": "blue"},
@@ -1463,8 +1575,8 @@ class Graphs:
             # Traccia: Pazienti Operati
             fig.add_trace(
                 go.Scatter(
-                    x=list(resolved_count.keys()),
-                    y=list(resolved_count.values()),
+                    x=days_range,
+                    y=y_resolved,
                     mode="lines+markers",
                     name="Pazienti Operati",
                     line={"color": "green"},
@@ -1475,8 +1587,8 @@ class Graphs:
             # Traccia: Pazienti in Attesa (Cumulativo)
             fig.add_trace(
                 go.Scatter(
-                    x=list(waiting_count.keys()),
-                    y=list(waiting_count.values()),
+                    x=days_range,
+                    y=y_waiting,
                     mode="lines+markers",
                     name="Pazienti in Attesa",
                     line={"color": "red"},
@@ -1485,8 +1597,8 @@ class Graphs:
             )
 
             # Linea inizio schedulazione
-            if Settings.start_week_scheduling >= 1:
-                start_day = Settings.start_week_scheduling * Settings.week_length_days
+            if START_WEEK_SCHEDULING >= 1:
+                start_day = START_WEEK_SCHEDULING * WEEK_LENGTH_DAYS
                 fig.add_vline(
                     x=start_day,
                     line={"color": "orange", "width": 2, "dash": "dash"},
@@ -1506,7 +1618,7 @@ class Graphs:
                 hovermode="x unified",
             )
 
-            self.ShowFigure(fig, name=f"WaitingListLineGraph_withEOTplanned_{op}")
+            self._show_figure(fig, name=f"WaitingListLineGraph_withEOTplanned_{op}")
 
     def PrintWaitingListLineGraph(
         self,
@@ -1515,28 +1627,40 @@ class Graphs:
         use_rot_as_primary: bool = False,
     ) -> None:
         """Crea grafico dell'evoluzione della lista d'attesa nel tempo.
-
+        
         Mostra: pazienti aggiunti, pazienti operati, e pazienti ancora in attesa.
-
+        
         Args:
             operations: PatientListForSpecialties con i dati
             baseTitle: Titolo base del grafico
             use_rot_as_primary: Non utilizzato (mantenuto per compatibilità)
         """
+        
+
         for op, patients in operations.items():
             if not patients:
                 continue
 
             title = baseTitle + op
+            self._log_dataset_snapshot(
+                context=f"waiting_list_line:{op}",
+                patients=patients,
+                extra={"use_rot_as_primary": use_rot_as_primary},
+            )
 
             # Raggruppa pazienti per giorno di inserimento e operazione
-            new_patient_list = defaultdict(list)
-            resolved_list = defaultdict(list)
+            new_patient_list = defaultdict(set)
+            resolved_list = defaultdict(set)
 
             for p in patients:
-                new_patient_list[p.day].append(p.id)
-                if p.opDay != -1:
-                    resolved_list[p.opDay].append(p.id)
+                p_id = self._get_patient_value(p, "id")
+                p_day = self._get_patient_value(p, "day")
+                p_op_day = self._get_patient_value(p, "opDay", -1)
+                if p_id is not None:
+                    if p_day is not None:
+                        new_patient_list[p_day].add(p_id)
+                    if p_op_day != -1 and p_op_day is not None:
+                        resolved_list[p_op_day].add(p_id)
 
             # Ordina per giorno
             new_patient_list = dict(sorted(new_patient_list.items()))
@@ -1561,11 +1685,16 @@ class Graphs:
 
             # Crea grafico
             fig = go.Figure()
+            days_range = list(range(max_day + 1))
+            y_added = [new_patient_count.get(d, 0) for d in days_range]
+            y_resolved = [resolved_count.get(d, 0) for d in days_range]
+            y_waiting = [waiting_count.get(d, 0) for d in days_range]
 
+            # Traccia: Pazienti Aggiunti
             fig.add_trace(
                 go.Scatter(
-                    x=list(new_patient_count.keys()),
-                    y=list(new_patient_count.values()),
+                    x=days_range,
+                    y=y_added,
                     mode="lines+markers",
                     name="Pazienti Aggiunti",
                     line={"color": "blue"},
@@ -1573,10 +1702,11 @@ class Graphs:
                 )
             )
 
+            # Traccia: Pazienti Operati
             fig.add_trace(
                 go.Scatter(
-                    x=list(resolved_count.keys()),
-                    y=list(resolved_count.values()),
+                    x=days_range,
+                    y=y_resolved,
                     mode="lines+markers",
                     name="Pazienti Operati",
                     line={"color": "green"},
@@ -1584,10 +1714,11 @@ class Graphs:
                 )
             )
 
+            # Traccia: Pazienti in Attesa (Cumulativo)
             fig.add_trace(
                 go.Scatter(
-                    x=list(waiting_count.keys()),
-                    y=list(waiting_count.values()),
+                    x=days_range,
+                    y=y_waiting,
                     mode="lines+markers",
                     name="Pazienti in Attesa",
                     line={"color": "red"},
@@ -1596,8 +1727,8 @@ class Graphs:
             )
 
             # Linea inizio schedulazione
-            if Settings.start_week_scheduling >= 1:
-                start_day = Settings.start_week_scheduling * Settings.week_length_days
+            if START_WEEK_SCHEDULING >= 1:
+                start_day = START_WEEK_SCHEDULING * WEEK_LENGTH_DAYS
                 fig.add_vline(
                     x=start_day,
                     line={"color": "orange", "width": 2, "dash": "dash"},
@@ -1614,7 +1745,7 @@ class Graphs:
                 hovermode="x unified",
             )
 
-            self.ShowFigure(fig, name=f"WaitingListLineGraph_{op}")
+            self._show_figure(fig, name=f"WaitingListLineGraph_{op}")
 
     def MostraTabellaConfrontoPlotly(self, scenari: dict) -> None:
         """
@@ -1622,6 +1753,8 @@ class Graphs:
         Supporta il raggruppamento dinamico (espandi/comprimi) delle settimane tramite pulsanti
         e calcola i riepiloghi mensili.
         """
+        
+
         def wrap_text_by_words(text: str, max_chars: int = 14) -> str:
             """Avvolge il testo in più righe senza spezzare le parole."""
             words = str(text).split(" ")
@@ -1651,7 +1784,7 @@ class Graphs:
                     if p.opDay > max_day:
                         max_day = p.opDay
                         
-        num_weeks = 1 if max_day == 0 else int((max_day - 1) // Settings.week_length_days + 1)
+        num_weeks = 1 if max_day == 0 else int((max_day - 1) // WEEK_LENGTH_DAYS + 1)
         num_months = (num_weeks - 1) // 4 + 1
 
         # 2. Costruzione della struttura delle colonne
@@ -1685,7 +1818,7 @@ class Graphs:
 
         rows_data_full = []
         hover_data_full = []
-        std_limit_daily = Settings.daily_operation_limit
+        std_limit_daily = DAILY_OPERATION_LIMIT
 
         # 3. Elaborazione Dati
         for scenario_name, operation_data in scenari.items():
@@ -1693,9 +1826,15 @@ class Graphs:
                 if not pazienti or len(pazienti) == 0:
                     continue
 
+                self._log_dataset_snapshot(
+                    context=f"comparison_table:{scenario_name}:{spec_name}",
+                    patients=pazienti,
+                    extra={"scenario": scenario_name},
+                )
+
                 num_rooms = Settings.workstations_config.get(spec_name, 1)
-                std_avail_weekly = std_limit_daily * Settings.week_length_days * num_rooms
-                extra_avail_weekly = Settings.weekly_extra_time_pool * num_rooms
+                std_avail_weekly = std_limit_daily * WEEK_LENGTH_DAYS * num_rooms
+                extra_avail_weekly = WEEKLY_EXTRA_TIME_POOL * num_rooms
 
                 daily_tot_time = {}
                 pazienti_operati = 0
@@ -1729,7 +1868,7 @@ class Graphs:
                 month_st_pcts = []
 
                 for w in range(1, num_weeks + 1):
-                    giorni_settimana = range((w - 1) * Settings.week_length_days + 1, w * Settings.week_length_days + 1)
+                    giorni_settimana = range((w - 1) * WEEK_LENGTH_DAYS + 1, w * WEEK_LENGTH_DAYS + 1)
                     used_std_weekly = 0
                     used_extra_weekly = 0
                     std_limit_daily_total = std_limit_daily * num_rooms
@@ -1897,15 +2036,16 @@ class Graphs:
             margin=dict(l=20, r=20, t=160, b=30)
         )
 
-        self.ShowFigure(fig, name="Tabella_Confronto_Scenari_Dettagliata")
-        
-    
+        self._show_figure(fig, name="Tabella_Confronto_Scenari_Dettagliata")
+    #endregion
+
     def MakeGraphs(
         self,
         data: PatientListForSpecialties,
         showGraphs: bool = False,
         plan_eot: dict | None = None,
         use_rot_as_primary: bool = False,
+        log_graph_data: bool | None = None,
     ) -> None:
         """Genera tutti i grafici di analisi dalla schedulazione.
 
@@ -1917,38 +2057,22 @@ class Graphs:
         """
 
         self.ShowFigures = showGraphs
+        if log_graph_data is not None:
+            self.log_graph_data = log_graph_data
 
         base_title = "Distribuzione pazienti - "
-        self.PrintDailyBoxGraph(data, base_title, use_rot_as_primary=use_rot_as_primary)
-        self.PrintDailyBoxGraph_withEOTplanned(
-            data, base_title, plan_eot=plan_eot, use_rot_as_primary=use_rot_as_primary
-        )
-
         trend_title = "Carico operatorio - "
-        self.PrintTrendLineGraph(
-            data, trend_title, use_rot_as_primary=use_rot_as_primary
-        )
-        self.PrintTrendLineGraph_withEOTplanned(
-            data, trend_title, plan_eot=plan_eot, use_rot_as_primary=use_rot_as_primary
-        )
-
         wait_title = "Lista attesa - "
-        self.PrintWaitingListLineGraph(
-            data, wait_title, use_rot_as_primary=use_rot_as_primary
-        )
-        self.PrintWaitingListLineGraph_withEOTplanned(
-            data, wait_title, plan_eot=plan_eot, use_rot_as_primary=use_rot_as_primary
-        )
-
-        self.PrintWaitingTimeBoxPlotGraph(
-            data, "Tempi attesa - ", use_rot_as_primary=use_rot_as_primary
-        )
-        self.PrintWaitingTimeBoxPlotGraph_withEOTplanned(
-            data,
-            "Tempi attesa - ",
-            plan_eot=plan_eot,
-            use_rot_as_primary=use_rot_as_primary,
-        )
+        if use_rot_as_primary:
+            self.PrintDailyBoxGraph(data, base_title, use_rot_as_primary=use_rot_as_primary)
+            self.PrintTrendLineGraph(data, trend_title, use_rot_as_primary=use_rot_as_primary)
+            self.PrintWaitingListLineGraph(data, wait_title, use_rot_as_primary=use_rot_as_primary)
+            self.PrintWaitingTimeBoxPlotGraph(data, "Tempi attesa - ", use_rot_as_primary=use_rot_as_primary)
+        else:
+            self.PrintDailyBoxGraph_withEOTplanned(data, base_title, plan_eot=plan_eot, use_rot_as_primary=use_rot_as_primary)
+            self.PrintTrendLineGraph_withEOTplanned(data, trend_title, plan_eot=plan_eot, use_rot_as_primary=use_rot_as_primary)
+            self.PrintWaitingListLineGraph_withEOTplanned(data, wait_title, plan_eot=plan_eot, use_rot_as_primary=use_rot_as_primary)
+            self.PrintWaitingTimeBoxPlotGraph_withEOTplanned(data,"Tempi attesa - ",plan_eot=plan_eot,use_rot_as_primary=use_rot_as_primary,)
 
 
 if __name__ == "__main__":
@@ -1976,5 +2100,9 @@ if __name__ == "__main__":
         "Stimato + Ripianificato": schedule_stimato_ripianificato,
         "PostSchedulato": schedule_rot_cplex,
     }
+    print("SONO NEI TEST GRAFICI")
     graph_manager = Graphs()
     graph_manager.MostraTabellaConfrontoPlotly(dictSchedules)
+    graph_manager.MakeGraphs(
+        schedule, showGraphs=False, plan_eot=plan_eot, use_rot_as_primary=False
+    )
