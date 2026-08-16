@@ -61,7 +61,7 @@ def crea_scenari_per_tabella(cartella_dati=_DATA_PATH, nome_file=_SCHEDULING_FIL
             scenari[f"{seed}"] = dati_grezzi[seed]["base"]
             
         if "rot" in dati_grezzi[seed]:
-            scenari[f"{seed} Rot"] = dati_grezzi[seed]["rot"]
+            scenari[f"{seed} Post"] = dati_grezzi[seed]["rot"]
 
     return scenari
 
@@ -71,7 +71,7 @@ def Genera_tabelle(cartella_dati=_DATA_PATH, nome_file=_SCHEDULING_FILE_NAME):
     cartella_output.mkdir(parents=True, exist_ok=True)
     
     graph = Graphs(str(cartella_output))
-    graph.MostraTabellaConfrontoPlotly(scenari)
+    graph.MostraTabellaConfrontoPlotlyDaDati(scenari)
 
 if __name__ == "__main__":
     Genera_tabelle(_DATA_PATH, _SCHEDULING_FILE_NAME)
