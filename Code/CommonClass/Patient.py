@@ -11,13 +11,13 @@ if os.path.basename(__file__) != "main.py":
 
 @dataclass
 class Patient:
-    def __init__(self, id: int, eot: float, day: int, mtb: int,
+    def __init__(self, id: int, eot: float, day: int, mtbt: int,
         rot: float = None, opDay = -1, workstation: int = -1, overdue: bool = False):
         self.id = id
         self.eot = eot
         self.rot = rot
         self.day = day
-        self.mtb = mtb
+        self.mtbt = mtbt
         self.opDay = opDay
         self.workstation = workstation
         self.overdue = overdue
@@ -38,7 +38,7 @@ class Patient:
             "eot": self.eot,
             "rot": self.rot,
             "day": self.day,
-            "mtb": self.mtb,
+            "mtbt": self.mtbt,
             "opDay": self.opDay,
             "workstation": self.workstation,
             "overdue": self.overdue
@@ -50,7 +50,7 @@ class Patient:
             "eot": self.eot,
             "rot": self.rot,
             "day": self.day,
-            "mtb": self.mtb,
+            "mtbt": self.mtbt,
             "opDay": self.opDay,
             "workstation": self.workstation,
             "overdue": self.overdue
@@ -58,6 +58,6 @@ class Patient:
 
     @classmethod
     def from_dict(cls, data):
-        return cls(data['id'], data['eot'], data['day'], data['mtb'], data['rot'], data['opDay'], data['workstation'], data['overdue'])
+        return cls(data['id'], data['eot'], data['day'], data['mtbt'], data['rot'], data['opDay'], data['workstation'], data['overdue'])
     
     #endregion

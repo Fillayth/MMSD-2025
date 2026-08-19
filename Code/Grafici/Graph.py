@@ -89,8 +89,8 @@ def CreateScheduleWithReplanned(schedule: dict, plan_eot_input: dict | None) -> 
                     p["workstation"] = pp.get("workstation", p.get("workstation"))
                     p["eot"] = float(pp.get("eot", 0) or p.get("eot", 0))
                     p["day"] = pp.get("day", p.get("day"))
-                    if "mtb" in pp:
-                        p["mtb"] = pp["mtb"]
+                    if "mtbt" in pp:
+                        p["mtbt"] = pp["mtbt"]
                     if "rot" in pp:
                         p["rot"] = float(pp["rot"] or p.get("rot", 0))
                 else:
@@ -98,8 +98,8 @@ def CreateScheduleWithReplanned(schedule: dict, plan_eot_input: dict | None) -> 
                     p.workstation = pp.get("workstation", p.workstation)
                     p.eot = float(pp.get("eot", 0) or p.eot)
                     p.day = pp.get("day", p.day)
-                    if "mtb" in pp:
-                        p.mtb = pp["mtb"]
+                    if "mtbt" in pp:
+                        p.mtbt = pp["mtbt"]
                     if "rot" in pp:
                         p.rot = float(pp["rot"] or p.rot)
 
@@ -121,7 +121,7 @@ def CreateScheduleWithReplanned(schedule: dict, plan_eot_input: dict | None) -> 
                         "eot": float(pp.get("eot", 0) or 0),
                         "rot": float(pp.get("rot", 0) or 0),
                         "day": pp.get("day", 0),
-                        "mtb": pp.get("mtb", 0),
+                        "mtbt": pp.get("mtbt", 0),
                         "opDay": pp.get("opDay", -1),
                         "workstation": pp.get("workstation", 0),
                         "overdue": pp.get("overdue", False),
@@ -136,7 +136,7 @@ def CreateScheduleWithReplanned(schedule: dict, plan_eot_input: dict | None) -> 
                         new_p.eot = float(pp.get("eot", 0) or 0)
                         new_p.rot = float(pp.get("rot", 0) or 0)
                         new_p.day = pp.get("day", 0)
-                        new_p.mtb = pp.get("mtb", 0)
+                        new_p.mtbt = pp.get("mtbt", 0)
                         new_p.overdue = pp.get("overdue", False)
                         updated_patients.append(new_p)
                     except Exception:
@@ -242,7 +242,7 @@ class Graphs:
                     "workstation": self._get_patient_value(p, "workstation", -1),
                     "eot": self._get_patient_value(p, "eot"),
                     "rot": self._get_patient_value(p, "rot"),
-                    "mtb": self._get_patient_value(p, "mtb"),
+                    "mtbt": self._get_patient_value(p, "mtbt"),
                 }
                 for p in patients
             ]
@@ -256,7 +256,7 @@ class Graphs:
                     "workstation": entry.get("workstation", -1),
                     "eot": entry.get("eot"),
                     "rot": entry.get("rot"),
-                    "mtb": entry.get("mtb"),
+                    "mtbt": entry.get("mtbt"),
                 }
                 for entry in plan_entries
             ]
@@ -441,7 +441,7 @@ class Graphs:
                     {
                         "ID": p.id,
                         "Data inserimento": p.day,
-                        "MTB": p.mtb,
+                        "mtbt": p.mtbt,
                         "Data operazione": p.opDay,
                     }
                     for p in patients
@@ -571,7 +571,7 @@ class Graphs:
                                     text=[
                                         f"Patient {p.id}: {int(y_val)}m {int((y_val % 1) * 60)}s"
                                     ],
-                                    hovertemplate=f"Paziente {p.id}<br>{label}: {val_hover:.2f} min<br>D:{p.day}|MTB:{p.mtb}<extra>{label}</extra>",
+                                    hovertemplate=f"Paziente {p.id}<br>{label}: {val_hover:.2f} min<br>D:{p.day}|mtbt:{p.mtbt}<extra>{label}</extra>",
                                     marker=dict(
                                         color=color_map_progressive.get(p.id, "gray")
                                     ),
@@ -600,7 +600,7 @@ class Graphs:
                                     text=[
                                         f"Patient {p.id} {label_sec.split()[0]}: {int(y_val_sec)}m {int((y_val_sec % 1) * 60)}s"
                                     ],
-                                    hovertemplate=f"Paziente {p.id}<br>{label_sec}: {val_hover_sec:.2f} min<br>D:{p.day}|MTB:{p.mtb}<extra>{label_sec}</extra>",
+                                    hovertemplate=f"Paziente {p.id}<br>{label_sec}: {val_hover_sec:.2f} min<br>D:{p.day}|mtbt:{p.mtbt}<extra>{label_sec}</extra>",
                                     marker=dict(
                                         color=color_map_progressive.get(p.id, "gray"),
                                         opacity=0.3,
@@ -1243,7 +1243,7 @@ class Graphs:
                     direction="right",
                     active=0,
                     x=0.15,
-                    y=1.05,
+                    y=1.12,
                     #xanchor="left",
                     #yanchor="top",
                     pad={"r": 0, "t": 0, "b": 10},

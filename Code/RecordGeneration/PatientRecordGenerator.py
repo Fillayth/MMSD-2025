@@ -113,7 +113,7 @@ def write_reports(
                 "Specialty",
                 "EOT (Estimated Operation Time in minutes)",
                 "Day (Day Added to Waiting List)",
-                "MTB (Priority, max waiting days)",
+                "mtbt (Priority, max waiting days)",
                 "ROT (Real Operation Time in minutes)",
             ]
         )

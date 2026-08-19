@@ -23,7 +23,7 @@ with open(csv_file_path, mode='r', encoding='utf-8') as f:
             "eot": float(row["EOT (Estimated Operation Time in minutes)"]),
             "rot": float(row["ROT (Real Operation Time in minutes)"]),
             "day": int(row["Day (Day Added to Waiting List)"]),
-            "mtb": int(row["MTB (Priority, max waiting days)"])
+            "mtbt": int(row["MTBT (Priority, max waiting days)"])
         }
         
         # Se la specialità non esiste ancora nel dizionario, inizializza una lista vuota
@@ -48,7 +48,7 @@ print(f"Conversione completata! Creato il file '{json_file_path}'")
 #     "Specialty",
 #     "EOT (Estimated Operation Time in minutes)",
 #     "Day (Day Added to Waiting List)",
-#     "MTB (Priority, max waiting days)",
+#     "mtbt (Priority, max waiting days)",
 #     "ROT (Real Operation Time in minutes)"
 # ]
 
@@ -62,7 +62,7 @@ print(f"Conversione completata! Creato il file '{json_file_path}'")
 #             specialty_name,                      # Specialty (es. "Specialty A")
 #             p.get('eot'),                        # EOT
 #             p.get('day'),                        # Day
-#             p.get('mtb'),                        # MTB
+#             p.get('mtbt'),                        # mtbt
 #             p.get('rot')                         # ROT
 #         ]
 #         rows.append(row)

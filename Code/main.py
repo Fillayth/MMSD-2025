@@ -7,7 +7,7 @@ from settings import Settings
 from Simulatore.Simulation import (
     read_and_split_by_operation_with_metadata,
     export_json_schedule,
-    group_daily_with_mtb_logic_optimized_rot,
+    group_daily_with_mtbt_logic_optimized_rot,
 )
 from Simulatore.Simulation import rebuild_schedule_using_rot_cplex
 
@@ -41,7 +41,7 @@ def main():
 
     all_patient_records = read_and_split_by_operation_with_metadata(paths[0])
 
-    schedule = group_daily_with_mtb_logic_optimized_rot(all_patient_records, resultsData_folder)
+    schedule = group_daily_with_mtbt_logic_optimized_rot(all_patient_records, resultsData_folder)
     plan_eot = None
     try:
         with open(f"{resultsData_folder}/extra_time.json", "r", encoding="utf-8") as f:

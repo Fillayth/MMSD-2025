@@ -65,9 +65,9 @@ def PyomoModel_0(
         model.I,
         initialize={i: patients_sorted[i].day for i in range(len(patients_sorted))},
     )
-    model.mtb = pyo.Param(
+    model.mtbt = pyo.Param(
         model.I,
-        initialize={i: patients_sorted[i].mtb for i in range(len(patients_sorted))},
+        initialize={i: patients_sorted[i].mtbt for i in range(len(patients_sorted))},
     )
     model.eot = pyo.Param(
         model.I,
@@ -95,9 +95,9 @@ def PyomoModel_0(
 def compute_w_tilde(p: Patient, today: int, phi: int) -> float:
     """Compute the priority score used for ROT resequencing."""
     waiting_time = max(0, today - p.day)
-    if p.mtb <= 0:
+    if p.mtbt <= 0:
         return math.inf
-    return (waiting_time + phi) / p.mtb
+    return (waiting_time + phi) / p.mtbt
 
 
 def best_fit_order_low_priority(
@@ -420,7 +420,7 @@ def plan_week_eot(
             id=model.id_p[i],
             eot=model.eot[i],
             day=model.dr[i],
-            mtb=model.mtb[i],
+            mtbt=model.mtbt[i],
             rot=[patient for patient in patients if patient.id == model.id_p[i]][0].rot,
             opDay=t,
             workstation=k,
@@ -441,7 +441,7 @@ Rialloca una settimana utilizzando direttamente i tempi reali (ROT)
 consentendo l'impiego di overtime.
 
 Il modello assegna i pazienti alle sale operatorie rispettando le
-scadenze MTB, i limiti giornalieri e il monte ore straordinario
+scadenze mtbt, i limiti giornalieri e il monte ore straordinario
 disponibile.
 """
 def reallocate_week_with_rot_overtime(
@@ -455,9 +455,9 @@ def reallocate_week_with_rot_overtime(
 
     operating_rooms = Settings.workstations_config[specialty]
 
-    valid_patients = [p for p in planned_patients if (p.day + p.mtb) >= week_start_day]
+    valid_patients = [p for p in planned_patients if (p.day + p.mtbt) >= week_start_day]
 
-    overflow = [p for p in planned_patients if (p.day + p.mtb) < week_start_day]
+    overflow = [p for p in planned_patients if (p.day + p.mtbt) < week_start_day]
 
     for p in overflow:
         p.overdue = True
@@ -480,8 +480,8 @@ def reallocate_week_with_rot_overtime(
         model.I, initialize={i: patients_sorted[i].id for i in model.I}
     )
 
-    model.mtb = pyo.Param(
-        model.I, initialize={i: patients_sorted[i].mtb for i in model.I}
+    model.mtbt = pyo.Param(
+        model.I, initialize={i: patients_sorted[i].mtbt for i in model.I}
     )
 
     model.x = pyo.Var(model.I, model.T, model.K, domain=pyo.Binary)
@@ -497,7 +497,7 @@ def reallocate_week_with_rot_overtime(
 
     def hard_deadline_rule(model, i, t, k):
 
-        deadline = model.day[i] + model.mtb[i]
+        deadline = model.day[i] + model.mtbt[i]
 
         if t > deadline:
             return model.x[i, t, k] == 0

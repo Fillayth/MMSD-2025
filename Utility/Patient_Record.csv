@@ -1,4 +1,4 @@
-Patient ID,Specialty,EOT (Estimated Operation Time in minutes),Day (Day Added to Waiting List),"MTB (Priority, max waiting days)",ROT (Real Operation Time in minutes)
+Patient ID,Specialty,EOT (Estimated Operation Time in minutes),Day (Day Added to Waiting List),"mtbt (Priority, max waiting days)",ROT (Real Operation Time in minutes)
 1,Specialty A,23.268,1,18,28.83
 2,Specialty A,47.06,1,17,58.698
 3,Specialty A,78.304,1,9,95.32

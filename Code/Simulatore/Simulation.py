@@ -6,7 +6,7 @@ e serializzazione dei risultati su file JSON/CSV.
 
 Funzioni esposte:
     - read_and_split_by_operation_with_metadata : letttura CSV → dict per specialità
-    - group_daily_with_mtb_logic_optimized_rot  : orchestrazione EOT + simulazione ROT
+    - group_daily_with_mtbt_logic_optimized_rot  : orchestrazione EOT + simulazione ROT
     - export_json_schedule                      : esportazione schedule su JSON
     - ExportCSVResults                          : esportazione risultati su CSV
 """
@@ -44,7 +44,7 @@ def read_and_split_by_operation_with_metadata(csv_file: str) -> dict:
     """
     Legge il file CSV dei pazienti e restituisce un dizionario
     {specialità: [Patient, ...]} con tutti i metadati necessari alla
-    simulazione (EOT, ROT, giorno di inserimento, priorità MTB).
+    simulazione (EOT, ROT, giorno di inserimento, priorità mtbt).
 
     Parameters
     ----------
@@ -71,7 +71,7 @@ def read_and_split_by_operation_with_metadata(csv_file: str) -> dict:
                     id=int(row["Patient ID"]),
                     eot=float(row["EOT (Estimated Operation Time in minutes)"]),
                     day=int(row["Day (Day Added to Waiting List)"]),
-                    mtb=int(row["MTB (Priority, max waiting days)"]),
+                    mtbt=int(row["mtbt (Priority, max waiting days)"]),
                     rot=float(row["ROT (Real Operation Time in minutes)"]),
                 )
             )
@@ -86,7 +86,7 @@ def read_and_split_by_operation_with_metadata(csv_file: str) -> dict:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def group_daily_with_mtb_logic_optimized_rot(
+def group_daily_with_mtbt_logic_optimized_rot(
     ops_dict: PatientListForSpecialties,
     data_folder: str = "./Data/",
 ) -> PatientListForSpecialties:
@@ -143,7 +143,7 @@ def group_daily_with_mtb_logic_optimized_rot(
         return {
             "id": p.id,
             "day": p.day,
-            "mtb": p.mtb,
+            "mtbt": p.mtbt,
             "eot": p.eot,
             "rot": p.rot,
             "opDay": getattr(p, "opDay", None),
@@ -165,7 +165,7 @@ def group_daily_with_mtb_logic_optimized_rot(
         # Overflow: ogni settimana è separata da un paziente sentinella id=-1
         for week_overflow in data[op_type]["overflow"]:
             overflows[op_type].extend(week_overflow)
-            overflows[op_type].append(Patient(id=-1, eot=0, day=0, mtb=0, rot=0))
+            overflows[op_type].append(Patient(id=-1, eot=0, day=0, mtbt=0, rot=0))
 
         # Extra-time residuo e statistiche real-time per settimana
         extra_times[op_type] = data[op_type]["extra_time_left"]
