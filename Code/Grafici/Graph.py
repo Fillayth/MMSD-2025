@@ -334,6 +334,29 @@ class Graphs:
         time_used = sum(getattr(p, metric, 0) for p in daily_patients)
         return DAILY_OPERATION_LIMIT - time_used
 
+    @staticmethod
+    def _calculate_week_usage(
+        room_daily_tot_time: dict[tuple[int, int], float],
+        week_days: range,
+        num_rooms: int,
+        daily_limit: float,
+    ) -> tuple[float, float]:
+        """Calcola minuti ordinari e straordinari di una settimana.
+
+        Per ogni sala e giorno, i primi ``daily_limit`` minuti sono ordinari;
+        l'eccedenza è straordinaria. La stessa funzione è usata per tutti gli
+        scenari, evitando che le due modalità di generazione della tabella
+        applichino regole diverse.
+        """
+        ordinary_minutes = 0.0
+        overtime_minutes = 0.0
+        for day in week_days:
+            for room_id in range(1, num_rooms + 1):
+                used_minutes = room_daily_tot_time.get((day, room_id), 0.0)
+                ordinary_minutes += min(used_minutes, daily_limit)
+                overtime_minutes += max(0.0, used_minutes - daily_limit)
+        return ordinary_minutes, overtime_minutes
+
     #endregion: Funzioni interne
     #region: Funzioni dei grafici 
     
@@ -1048,6 +1071,9 @@ class Graphs:
         # Elaborazione Dati
         for scenario_name, operation_data in scenari.items():
             scen_cfg = (scenari_settings or {}).get(scenario_name, {})
+            if isinstance(scen_cfg.get("settings"), dict):
+                # Accetta anche il formato grezzo prodotto dai file JSON.
+                scen_cfg = scen_cfg["settings"]
             current_ws_config = scen_cfg.get("workstations_config", workstations_config)
             current_daily_limit = scen_cfg.get("daily_operation_limit", daily_operation_limit)
             current_week_len = scen_cfg.get("week_length_days", week_length_days)
@@ -1077,7 +1103,6 @@ class Graphs:
                 extra_avail_weekly = current_extra_pool * num_rooms
 
                 room_daily_tot_time = defaultdict(float)
-                daily_tot_time = {}
                 pazienti_operati = 0
                 somma_attesa = 0
 
@@ -1090,7 +1115,6 @@ class Graphs:
 
                     somma_attesa += (op_day - entry_day)
                     room_daily_tot_time[(op_day, ws)] += rot
-                    # daily_tot_time[op_day] = daily_tot_time.get(op_day, 0) + rot
 
                 attesa_media = round(somma_attesa / pazienti_operati, 1) if pazienti_operati > 0 else 0
 
@@ -1120,18 +1144,12 @@ class Graphs:
                 # Calcolo settimanale sala per sala
                 for w in range(1, num_weeks + 1):
                     giorni_settimana = range((w - 1) * current_week_len, w * current_week_len)
-                    used_std_weekly = 0.0
-                    used_extra_weekly = 0.0
-
-                    for d in giorni_settimana:
-                        for room_id in range(1, num_rooms + 1):
-                            tot_room_day_time = room_daily_tot_time.get((d, room_id), 0.0)
-                            
-                            if tot_room_day_time > current_daily_limit:
-                                used_std_weekly += current_daily_limit
-                                used_extra_weekly += (tot_room_day_time - current_daily_limit)
-                            else:
-                                used_std_weekly += tot_room_day_time
+                    used_std_weekly, used_extra_weekly = self._calculate_week_usage(
+                        room_daily_tot_time,
+                        giorni_settimana,
+                        num_rooms,
+                        current_daily_limit,
+                    )
 
                     pct_or = round((used_std_weekly / std_avail_weekly) * 100, 1) if std_avail_weekly > 0 else 0
                     pct_st = round((used_extra_weekly / extra_avail_weekly) * 100, 1) if extra_avail_weekly > 0 else 0
