@@ -11,6 +11,46 @@ from Simulatore.Simulation import (
 )
 from Simulatore.Simulation import rebuild_schedule_using_rot_cplex
 
+def create_execution_stamp(output_dir="./Data/", filename_prefix="settings_"):
+    """
+    Crea uno snapshot completo delle configurazioni utilizzate 
+    per l'esecuzione corrente, includendo metadati come il timestamp e il seed effettivo.
+    """
+    actual_seed = Settings.GetSeed()
+
+    # Prepara il dizionario con i metadati dell'esecuzione
+    execution_stamp = {
+        "settings": {}
+    }
+
+    # Estrae tutti i parametri dalla classe Settings
+    for attr, value in Settings.__dict__.items():
+        if attr.startswith("__") or callable(value):
+            continue
+        
+        # Gestione speciale per l'oggetto solver di Pyomo
+        if hasattr(value, "name"):
+            execution_stamp["settings"][attr] = value.name
+        else:
+            try:
+                # Verifica serializzabilità JSON
+                json.dumps(value)
+                execution_stamp["settings"][attr] = value
+            except TypeError:
+                execution_stamp["settings"][attr] = str(value)
+
+    # Aggiorna il valore del seed salvato nei settaggi con quello effettivo
+    execution_stamp["settings"]["seed"] = actual_seed
+
+    # Salva lo stamp in un file JSON dedicato all'esecuzione
+    stamp_filename = f"{filename_prefix}_{actual_seed}.json"
+    stamp_filepath = os.path.join(output_dir, stamp_filename)
+    
+    with open(stamp_filepath, "w", encoding="utf-8") as f:
+        json.dump(execution_stamp, f, indent=4, ensure_ascii=False)
+        
+    print(f" Stamp configurazione salvato in: {stamp_filepath}")
+    return execution_stamp, stamp_filepath
 
 # Main function to generate patient records and weekly reports
 def main():
@@ -40,6 +80,9 @@ def main():
     resultsData_folder = os.path.dirname(os.path.abspath(paths[0]))
 
     all_patient_records = read_and_split_by_operation_with_metadata(paths[0])
+
+    # salva le configurazioni nel data seed
+    create_execution_stamp(output_dir=resultsData_folder)
 
     schedule = group_daily_with_mtbt_logic_optimized_rot(all_patient_records, resultsData_folder)
     plan_eot = None

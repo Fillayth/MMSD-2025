@@ -973,11 +973,9 @@ class Graphs:
             week_length_days: int = WEEK_LENGTH_DAYS,
             weekly_extra_time_pool: float = WEEKLY_EXTRA_TIME_POOL,
             figure_name: str = "Tabella_Confronto_Scenari_Dettagliata",
+            scenari_settings: dict[str, dict] | None = None,
         ) -> None:
         """Funzione core per la generazione della tabella di confronto Plotly.
-        
-        Riceve esplicitamente i dati degli scenari e i parametri di configurazione 
-        (sale operatorie per specialità, limiti giornalieri/settimanali, ecc.).
         """
         def wrap_text_by_words(text: str, max_chars: int = 14) -> str:
             """Avvolge il testo in più righe senza spezzare le parole."""
@@ -1039,31 +1037,46 @@ class Graphs:
 
         rows_data_full = []
         hover_data_full = []
-        std_limit_daily = daily_operation_limit
+        z_values_full = []
+        # std_limit_daily = daily_operation_limit
 
         scenario_end_rows = []
         current_row_idx = 0
 
+        scenario_color_index = 0
+
         # Elaborazione Dati
         for scenario_name, operation_data in scenari.items():
+            scen_cfg = (scenari_settings or {}).get(scenario_name, {})
+            current_ws_config = scen_cfg.get("workstations_config", workstations_config)
+            current_daily_limit = scen_cfg.get("daily_operation_limit", daily_operation_limit)
+            current_week_len = scen_cfg.get("week_length_days", week_length_days)
+            current_extra_pool = scen_cfg.get("weekly_extra_time_pool", weekly_extra_time_pool)
+
             scenario_has_rows = False
             for spec_name, pazienti in operation_data.items():
                 if not pazienti or len(pazienti) == 0:
                     continue
 
                 scenario_has_rows = True
-
                 self._log_dataset_snapshot(
                     context=f"comparison_table:{scenario_name}:{spec_name}",
                     patients=pazienti,
                     extra={"scenario": scenario_name},
                 )
 
-                # Usa la configurazione delle sale ricevuta in input
-                num_rooms = workstations_config.get(spec_name, 1)
-                std_avail_weekly = std_limit_daily * week_length_days * num_rooms
-                extra_avail_weekly = weekly_extra_time_pool * num_rooms
+                num_rooms = current_ws_config.get(spec_name, 1) if isinstance(current_ws_config, dict) else 1
+                max_ws_pazienti = 1
+                for p in pazienti:
+                    ws = self._get_patient_value(p, "workstation", 1)
+                    if ws and isinstance(ws, (int, float)) and int(ws) > max_ws_pazienti:
+                        max_ws_pazienti = int(ws)
+                num_rooms = max(num_rooms, max_ws_pazienti)
 
+                std_avail_weekly = current_daily_limit * current_week_len * num_rooms
+                extra_avail_weekly = current_extra_pool * num_rooms
+
+                room_daily_tot_time = defaultdict(float)
                 daily_tot_time = {}
                 pazienti_operati = 0
                 somma_attesa = 0
@@ -1073,9 +1086,11 @@ class Graphs:
                     op_day = int(self._get_patient_value(p, "opDay", 0) or 0)
                     entry_day = int(self._get_patient_value(p, "day", 0) or 0)
                     rot = float(self._get_patient_value(p, "rot", 0) or 0)
+                    ws = int(self._get_patient_value(p, "workstation", 1) or 1)
 
                     somma_attesa += (op_day - entry_day)
-                    daily_tot_time[op_day] = daily_tot_time.get(op_day, 0) + rot
+                    room_daily_tot_time[(op_day, ws)] += rot
+                    # daily_tot_time[op_day] = daily_tot_time.get(op_day, 0) + rot
 
                 attesa_media = round(somma_attesa / pazienti_operati, 1) if pazienti_operati > 0 else 0
 
@@ -1095,66 +1110,83 @@ class Graphs:
                     f"Tempo di Attesa Medio: <b>{attesa_media} giorni</b>"
                 ]
 
+                # Dati settimanali e calcolo medie mensili
                 month_or_pcts = []
                 month_st_pcts = []
-
+                month_used_std = 0.0
+                month_used_extra = 0.0
+                month_avail_std = 0.0
+                month_avail_extra = 0.0
+                # Calcolo settimanale sala per sala
                 for w in range(1, num_weeks + 1):
-                    giorni_settimana = range((w - 1) * week_length_days, w * week_length_days)
-                    used_std_weekly = 0
-                    used_extra_weekly = 0
-                    std_limit_daily_total = std_limit_daily * num_rooms
+                    giorni_settimana = range((w - 1) * current_week_len, w * current_week_len)
+                    used_std_weekly = 0.0
+                    used_extra_weekly = 0.0
 
                     for d in giorni_settimana:
-                        tot_day_time = daily_tot_time.get(d, 0)
-                        if tot_day_time > std_limit_daily_total:
-                            used_std_weekly += std_limit_daily_total
-                            used_extra_weekly += (tot_day_time - std_limit_daily_total)
-                        else:
-                            used_std_weekly += tot_day_time
+                        for room_id in range(1, num_rooms + 1):
+                            tot_room_day_time = room_daily_tot_time.get((d, room_id), 0.0)
+                            
+                            if tot_room_day_time > current_daily_limit:
+                                used_std_weekly += current_daily_limit
+                                used_extra_weekly += (tot_room_day_time - current_daily_limit)
+                            else:
+                                used_std_weekly += tot_room_day_time
 
                     pct_or = round((used_std_weekly / std_avail_weekly) * 100, 1) if std_avail_weekly > 0 else 0
                     pct_st = round((used_extra_weekly / extra_avail_weekly) * 100, 1) if extra_avail_weekly > 0 else 0
 
                     month_or_pcts.append(pct_or)
                     month_st_pcts.append(pct_st)
+                    month_used_std += used_std_weekly
+                    month_used_extra += used_extra_weekly
+                    month_avail_std += std_avail_weekly
+                    month_avail_extra += extra_avail_weekly
 
-                    row_cells.append(f"{pct_or}%")
-                    row_cells.append(f"{pct_st}%")
-
+                    row_cells.extend([f"{pct_or}%", f"{pct_st}%"])
                     row_hover.append(
-                        f"<b>Utilizzo OR Settimana {w}</b><br>"
+                        f"<b>Utilizzo OR W{w}</b><br>"
                         f"Utilizzati: {used_std_weekly:.1f} min<br>"
                         f"Disponibili: {std_avail_weekly} min<br>"
                         f"Percentuale: {pct_or}%"
                     )
                     row_hover.append(
-                        f"<b>Straordinari Settimana {w}</b><br>"
+                        f"<b>Straordinari W{w}</b><br>"
                         f"Utilizzati: {used_extra_weekly:.1f} min<br>"
                         f"Disponibili: {extra_avail_weekly} min<br>"
                         f"Percentuale: {pct_st}%"
                     )
 
-                    # Calcolo del Riepilogo Mensile
                     if w % weeks_per_month == 0 or w == num_weeks:
                         m = (w - 1) // weeks_per_month + 1
                         avg_or = round(sum(month_or_pcts) / len(month_or_pcts), 1)
                         avg_st = round(sum(month_st_pcts) / len(month_st_pcts), 1)
-
-                        row_cells.append(f"<b>{avg_or}%</b>")
-                        row_cells.append(f"<b>{avg_st}%</b>")
-
-                        row_hover.append(f"<b>Media OR Mese {m}</b><br>Media: {avg_or}% su {len(month_or_pcts)} sett.")
-                        row_hover.append(f"<b>Media Straordinari Mese {m}</b><br>Media: {avg_st}% su {len(month_st_pcts)} sett.")
-
-                        month_or_pcts = []
-                        month_st_pcts = []
+                        row_cells.extend([f"<b>{avg_or}%</b>", f"<b>{avg_st}%</b>"])
+                        row_hover.append(
+                            f"<b>Media OR Mese {m}</b><br>"
+                            f"Totale Utilizzati: {month_used_std:.1f} min<br>"
+                            f"Totale Disponibili: {month_avail_std} min<br>"
+                            f"Media: {avg_or}%"
+                        )
+                        row_hover.append(
+                            f"<b>Media Straordinari Mese {m}</b><br>"
+                            f"Totale Utilizzati: {month_used_extra:.1f} min<br>"
+                            f"Totale Disponibili: {month_avail_extra} min<br>"
+                            f"Media: {avg_st}%"
+                        )
+                        month_or_pcts, month_st_pcts = [], []
+                        month_used_std, month_used_extra = 0.0, 0.0
+                        month_avail_std, month_avail_extra = 0.0, 0.0
 
                 rows_data_full.append(row_cells)
                 hover_data_full.append(row_hover)
+                z_values_full.append(scenario_color_index)
                 current_row_idx += 1
 
             if scenario_has_rows:
+                # Salva il confine sotto l'ultima riga dello scenario
                 scenario_end_rows.append(current_row_idx - 1)
+                scenario_color_index = 1 - scenario_color_index
 
         if not rows_data_full:
             return
@@ -1163,13 +1195,16 @@ class Graphs:
         rows_data_synth = [[row[idx] for idx in indices_sintetici] for row in rows_data_full]
         hover_data_synth = [[row[idx] for idx in indices_sintetici] for row in hover_data_full]
 
-        z_full = [[0] * len(colonne_dettagliate) for _ in range(len(rows_data_full))]
-        z_synth = [[0] * len(colonne_sintetiche) for _ in range(len(rows_data_synth))]
+        # z_full = [[0] * len(colonne_dettagliate) for _ in range(len(rows_data_full))]
+        # z_synth = [[0] * len(colonne_sintetiche) for _ in range(len(rows_data_synth))]
+        z_full = [[val] * len(colonne_dettagliate) for val in z_values_full]
+        z_synth = [[val] * len(colonne_sintetiche) for val in z_values_full]
         y_indices = [f"R{i}" for i in range(len(rows_data_full))]
 
         fig = go.Figure()
 
         colorscale = [[0, "#4c9ded"], [1, "#f8f9fa"]]
+        #custom_colorscale = [[0.0, "#ffffff"], [1.0, "#f3f4f6"]]
         fig.add_trace(
             go.Heatmap(
                 z=z_synth,
@@ -1181,6 +1216,8 @@ class Graphs:
                 hovertext=hover_data_synth,
                 hovertemplate="%{hovertext}<extra></extra>",
                 colorscale=colorscale,
+                zmin=0,
+                zmax=1,
                 showscale=False,
                 xgap=2,
                 ygap=2,
@@ -1200,6 +1237,8 @@ class Graphs:
                 hovertext=hover_data_full,
                 hovertemplate="%{hovertext}<extra></extra>",
                 colorscale=colorscale,
+                zmin=0,
+                zmax=1,
                 showscale=False,
                 xgap=2,
                 ygap=2,
@@ -1229,24 +1268,26 @@ class Graphs:
 
         # 5. Layout e Pulsanti Menu
         fig.update_layout(
+            # --- TITOLO ---
             title=dict(
                 text="Tabella di Confronto Scenari",
-                x=0.05,
-                y=0.99,
-                # xanchor="left",
-                # yanchor="top",
-                pad=dict(r=1, b=15)
+                x=0.0,                 
+                y=1.0,                 
+                xanchor="left",
+                yanchor="bottom",     
+                pad=dict(b=90)        
             ),
+            
+            # --- PULSANTI ---
             updatemenus=[
                 dict(
-                    type="dropdown",
+                    type="buttons",
                     direction="right",
                     active=0,
-                    x=0.15,
-                    y=1.12,
-                    #xanchor="left",
-                    #yanchor="top",
-                    pad={"r": 0, "t": 0, "b": 10},
+                    x=0.0,             
+                    y=1.0,             
+                    xanchor="left",
+                    yanchor="bottom", pad={"l": 0, "r": 10, "t": 0, "b": 45}, 
                     buttons=[
                         dict(
                             label="Mostra solo Mesi",
@@ -1267,6 +1308,8 @@ class Graphs:
                     ]
                 )
             ],
+            
+            # --- STILI E MARGINI ---
             xaxis=dict(
                 side="top",
                 tickangle=0,
@@ -1281,8 +1324,8 @@ class Graphs:
             plot_bgcolor="#cbd5e1",
             paper_bgcolor="white",
             width=width_synth,
-            height=max(150, len(rows_data_full) * 45 + 100),
-            margin=dict(l=20, r=20, t=130, b=30)
+            height=max(150, len(rows_data_full) * 45 + 140),
+            margin=dict(l=20, r=20, t=140, b=30)
         )
 
         self._show_figure(fig, name=figure_name)
@@ -1306,37 +1349,20 @@ class Graphs:
     def MostraTabellaConfrontoPlotlyDaDati(
         self, 
         scenari: dict, 
+        scenari_settings: dict[str, dict] | None = None,
         weeks_per_month: int = Settings.weeks_per_month
     ) -> None:
-        """Genera la tabella di confronto Plotly estrapolando la configurazione delle sale
-        operatorie direttamente dai dati dei pazienti (workstation).
+        """Genera la tabella di confronto Plotly.
         """
-        dynamic_workstations_config = {}
-
-        for scenario_name, operation_data in scenari.items():
-            for spec_name, pazienti in operation_data.items():
-                if not pazienti:
-                    continue
-
-                # Calcola la sala operatoria massima utilizzata dai pazienti in questa specialità
-                max_ws = 1
-                for p in pazienti:
-                    ws = self._get_patient_value(p, "workstation", 1)
-                    if ws and isinstance(ws, (int, float)) and int(ws) > max_ws:
-                        max_ws = int(ws)
-
-                # Mantieni il valore massimo riscontrato tra i vari scenari per la stessa specialità
-                current_max = dynamic_workstations_config.get(spec_name, 1)
-                dynamic_workstations_config[spec_name] = max(current_max, max_ws)
-
         self._CreaTabellaConfrontoPlotlyCore(
             scenari=scenari,
-            workstations_config=dynamic_workstations_config,
+            workstations_config=Settings.workstations_config,
             weeks_per_month=weeks_per_month,
             daily_operation_limit=DAILY_OPERATION_LIMIT,
             week_length_days=WEEK_LENGTH_DAYS,
             weekly_extra_time_pool=WEEKLY_EXTRA_TIME_POOL,
-            figure_name="Tabella_Confronto_Scenari_Da_Dati"
+            figure_name="Tabella_Confronto_Scenari",
+            scenari_settings=scenari_settings
         )
 
     #endregion
