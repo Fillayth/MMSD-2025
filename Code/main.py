@@ -73,7 +73,7 @@ def main():
         seed=Settings.GetSeed(),  # 197558074,
         specialty_params=Settings.specialty_params,
         people_distribution=Settings.daily_patient_arrival_distribution,
-        priority_params=Settings.priority_params,  # <-- passa il nuovo dizionario
+        priority_params=Settings.priority_params, 
         filepath=data_root,
     )
     # la funzione generate_csv restituisce il path del seed come primo argomento

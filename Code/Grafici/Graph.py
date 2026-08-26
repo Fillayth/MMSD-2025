@@ -57,7 +57,7 @@ def CreateScheduleWithReplanned(schedule: dict, plan_eot_input: dict | None) -> 
         if not plan_list:
             continue
 
-        # 2. Mappa dei ripianificati indicizzata per ID (stringa)
+        # Mappa dei ripianificati indicizzata per ID (stringa)
         latest_plan_by_id = {}
         for pp in plan_list:
             if not isinstance(pp, dict):
@@ -70,7 +70,7 @@ def CreateScheduleWithReplanned(schedule: dict, plan_eot_input: dict | None) -> 
         updated_patients = []
         seen_ids = set()
 
-        # 3. Aggiornamento dei pazienti ESISTENTI nello schedule originale
+        # Aggiornamento dei pazienti ESISTENTI nello schedule originale
         for p in patients:
             is_dict = isinstance(p, dict)
             p_id = p.get("id") if is_dict else getattr(p, "id", None)
@@ -1031,9 +1031,10 @@ class Graphs:
                         max_day = op_day
 
         num_weeks = (max_day // week_length_days) + 1
+        giorni_simulazione = max_day +1  if max_day > 0 else 1
 
         # Costruzione della struttura delle colonne
-        colonne_base = ["Scenario", "Specialità", "N. Pazienti", "Attesa Media"]
+        colonne_base = ["Scenario", "Specialità", "N. Pazienti", "Attesa Media", "WIP"]
         
         colonne_dettagliate = [col.replace(" ", "<br>") for col in colonne_base]
         colonne_sintetiche = [col.replace(" ", "<br>") for col in colonne_base]
@@ -1118,6 +1119,8 @@ class Graphs:
 
                 attesa_media = round(somma_attesa / pazienti_operati, 1) if pazienti_operati > 0 else 0
 
+                wip_value = round(somma_attesa / giorni_simulazione, 2)
+
                 formatted_scenario = wrap_text_by_words(scenario_name, max_chars=14)
                 formatted_spec = wrap_text_by_words(spec_name, max_chars=14)
 
@@ -1125,13 +1128,18 @@ class Graphs:
                     formatted_scenario,
                     formatted_spec,
                     str(pazienti_operati),
-                    f"{attesa_media} gg"
+                    f"{attesa_media} gg",
+                    str(wip_value)
                 ]
                 row_hover = [
                     f"Scenario: <b>{scenario_name}</b>",
                     f"Specialità: <b>{spec_name}</b>",
                     f"Pazienti Totali Operati: <b>{pazienti_operati}</b>",
-                    f"Tempo di Attesa Medio: <b>{attesa_media} giorni</b>"
+                    f"Tempo di Attesa Medio: <b>{attesa_media} giorni</b>",
+                    f"Somma Attese: {somma_attesa} gg<br>"
+                    f"Giorni Simulazione: {giorni_simulazione}<br>"
+                    f"Calcolo: ({pazienti_operati} arrivati x {attesa_media} attesa media) / {giorni_simulazione} gg<br>"
+                    f"Valore WIP: <b>{wip_value} persone</b>"
                 ]
 
                 # Dati settimanali e calcolo medie mensili
